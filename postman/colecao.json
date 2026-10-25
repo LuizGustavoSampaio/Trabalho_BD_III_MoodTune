@@ -1,0 +1,420 @@
+{
+  "info": {
+    "name": "MoodTune - API (RESTHeart)",
+    "description": "Colecao de testes do MoodTune, na mesma ordem do fluxo do projeto: primeiro as duas APIs externas que fornecem os dados (iTunes e LRCLIB), depois o CRUD completo no banco (MongoDB + RESTHeart em Docker).\nAs requisicoes do banco rodam em ordem: a 04 (POST) guarda o id na variavel idMusica, e as seguintes reutilizam esse id sozinhas.\nAutenticacao Basic admin/secret no nivel da colecao; as requisicoes 01 e 02 usam noauth, para nao mandar a senha do banco para APIs de terceiros.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "basic",
+    "basic": [
+      { "key": "username", "value": "{{usuario}}", "type": "string" },
+      { "key": "password", "value": "{{senha}}", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080", "type": "string" },
+    { "key": "usuario", "value": "admin", "type": "string" },
+    { "key": "senha", "value": "secret", "type": "string" },
+    { "key": "idMusica", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "01 - [API externa] Buscar musica no iTunes (GET)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('veio pelo menos um resultado', function () {",
+              "    pm.expect(pm.response.json().resultCount).to.be.above(0);",
+              "});",
+              "",
+              "pm.test('o resultado traz os campos que o MoodTune usa', function () {",
+              "    const musica = pm.response.json().results[0];",
+              "    pm.expect(musica).to.have.property('trackId');",
+              "    pm.expect(musica).to.have.property('trackName');",
+              "    pm.expect(musica).to.have.property('artistName');",
+              "    pm.expect(musica).to.have.property('trackTimeMillis');",
+              "    pm.expect(musica).to.have.property('artworkUrl100');",
+              "    pm.expect(musica).to.have.property('previewUrl');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://itunes.apple.com/search?term=Coldplay Yellow&entity=song&country=BR&limit=1",
+          "protocol": "https",
+          "host": ["itunes", "apple", "com"],
+          "path": ["search"],
+          "query": [
+            { "key": "term", "value": "Coldplay Yellow" },
+            { "key": "entity", "value": "song" },
+            { "key": "country", "value": "BR" },
+            { "key": "limit", "value": "1" }
+          ]
+        },
+        "description": "Primeiro passo da importacao: pega metadados, capa e previa de 30s. O country=BR e necessario - sem ele a busca cai na loja americana e devolve outras musicas."
+      }
+    },
+    {
+      "name": "02 - [API externa] Buscar letra na LRCLIB (GET)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('a letra veio preenchida', function () {",
+              "    pm.expect(pm.response.json().plainLyrics).to.be.a('string').and.not.empty;",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://lrclib.net/api/get?track_name=Yellow&artist_name=Coldplay&duration=269",
+          "protocol": "https",
+          "host": ["lrclib", "net"],
+          "path": ["api", "get"],
+          "query": [
+            { "key": "track_name", "value": "Yellow" },
+            { "key": "artist_name", "value": "Coldplay" },
+            { "key": "duration", "value": "269" }
+          ]
+        },
+        "description": "Segundo passo: a letra. As duas APIs nao tem id em comum - a ligacao e por artista + titulo, com a duracao em segundos (vinda do iTunes) confirmando que e a mesma gravacao. Se der 404, o script cai no /api/search, que ignora duracao e album. Do resultado guardamos apenas um trecho, nunca a letra inteira."
+      }
+    },
+    {
+      "name": "03 - [Banco] Criar colecao musicas (PUT)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// 201 quando a colecao e criada agora; 200 quando ja existia de uma execucao anterior.",
+              "pm.test('status 201 (criada) ou 200 (ja existia)', function () {",
+              "    pm.expect(pm.response.code).to.be.oneOf([201, 200]);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/musicas", "host": ["{{baseUrl}}"], "path": ["musicas"] },
+        "description": "Cria a colecao 'musicas'. No RESTHeart a colecao precisa existir antes do primeiro POST."
+      }
+    },
+    {
+      "name": "04 - [Banco] Inserir musica (POST)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 201 Created', function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "pm.test('cabecalho Location com o id do documento', function () {",
+              "    pm.expect(pm.response.headers.has('Location')).to.be.true;",
+              "});",
+              "",
+              "// O RESTHeart devolve a URL do documento criado no cabecalho Location.",
+              "// Pegamos o trecho depois da ultima barra (o _id) e guardamos para as proximas requisicoes.",
+              "const local = pm.response.headers.get('Location');",
+              "const id = local.split('/').pop();",
+              "pm.collectionVariables.set('idMusica', id);",
+              "console.log('id guardado em idMusica:', id);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"trackId\": 1122782283,\n  \"titulo\": \"Yellow\",\n  \"artista\": \"Coldplay\",\n  \"album\": \"Parachutes\",\n  \"humor\": \"apaixonado\",\n  \"duracao\": 269,\n  \"trecho\": \"Look at the stars, look how they shine for you\",\n  \"tags\": [\"alternativo\"],\n  \"capa\": \"https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/f5/93/8c/f5938c49-964c-31d1-4b33-78b634f71fb7/190295978075.jpg/300x300bb.jpg\",\n  \"previa\": \"https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/66/f3/1a/66f31a76-a6ed-cb4c-f353-23310a7ae9a8/mzaf_10593596652344378873.plus.aac.p.m4a\",\n  \"favorito\": false,\n  \"criadoEm\": \"2026-10-25T15:00:00Z\",\n  \"atualizadoEm\": \"2026-10-25T15:00:00Z\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": { "raw": "{{baseUrl}}/musicas", "host": ["{{baseUrl}}"], "path": ["musicas"] },
+        "description": "Insere o documento montado a partir das requisicoes 01 e 02. O id criado volta no cabecalho Location e e salvo na variavel idMusica."
+      }
+    },
+    {
+      "name": "05 - [Banco] Listar musicas (GET)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('resposta e uma lista com pelo menos 1 musica', function () {",
+              "    const lista = pm.response.json();",
+              "    pm.expect(lista).to.be.an('array');",
+              "    pm.expect(lista.length).to.be.above(0);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/musicas?pagesize=100",
+          "host": ["{{baseUrl}}"],
+          "path": ["musicas"],
+          "query": [{ "key": "pagesize", "value": "100" }]
+        },
+        "description": "Lista as musicas. pagesize=100 porque o padrao do RESTHeart traz so 100 por pagina."
+      }
+    },
+    {
+      "name": "06 - [Banco] Buscar uma musica pelo id (GET)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('documento tem os campos esperados', function () {",
+              "    const musica = pm.response.json();",
+              "    pm.expect(musica).to.have.property('titulo');",
+              "    pm.expect(musica).to.have.property('artista');",
+              "    pm.expect(musica).to.have.property('humor');",
+              "    pm.expect(musica.duracao).to.be.a('number');",
+              "    pm.expect(musica.tags).to.be.an('array');",
+              "});",
+              "",
+              "pm.test('guarda o trackId do iTunes (campo referenciado)', function () {",
+              "    pm.expect(pm.response.json().trackId).to.be.a('number');",
+              "});",
+              "",
+              "pm.test('o _id volta no formato {$oid}', function () {",
+              "    pm.expect(pm.response.json()._id).to.have.property('$oid');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/musicas/{{idMusica}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["musicas", "{{idMusica}}"]
+        },
+        "description": "Busca o documento criado na requisicao 04, usando o id guardado em idMusica."
+      }
+    },
+    {
+      "name": "07 - [Banco] Filtrar por humor (GET)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('todas as musicas retornadas tem o humor pedido', function () {",
+              "    const lista = pm.response.json();",
+              "    pm.expect(lista).to.be.an('array');",
+              "    lista.forEach(function (musica) {",
+              "        pm.expect(musica.humor).to.eql('apaixonado');",
+              "    });",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/musicas?filter={\"humor\":\"apaixonado\"}",
+          "host": ["{{baseUrl}}"],
+          "path": ["musicas"],
+          "query": [{ "key": "filter", "value": "{\"humor\":\"apaixonado\"}" }]
+        },
+        "description": "Filtro do RESTHeart: o parametro filter recebe uma consulta do MongoDB em JSON. E assim que o site busca a musica pelo humor escolhido."
+      }
+    },
+    {
+      "name": "08 - [Banco] Substituir musica inteira (PUT)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"trackId\": 1122782283,\n  \"titulo\": \"Yellow\",\n  \"artista\": \"Coldplay\",\n  \"album\": \"Parachutes\",\n  \"humor\": \"apaixonado\",\n  \"duracao\": 269,\n  \"trecho\": \"Your skin, oh yeah your skin and bones\",\n  \"tags\": [\"alternativo\", \"balada\"],\n  \"capa\": \"https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/f5/93/8c/f5938c49-964c-31d1-4b33-78b634f71fb7/190295978075.jpg/300x300bb.jpg\",\n  \"previa\": \"https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/66/f3/1a/66f31a76-a6ed-cb4c-f353-23310a7ae9a8/mzaf_10593596652344378873.plus.aac.p.m4a\",\n  \"favorito\": false,\n  \"criadoEm\": \"2026-10-25T15:00:00Z\",\n  \"atualizadoEm\": \"2026-10-25T18:30:00Z\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/musicas/{{idMusica}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["musicas", "{{idMusica}}"]
+        },
+        "description": "PUT troca o documento inteiro: campos que nao forem enviados somem. Por isso o corpo repete todos os campos. E o metodo do formulario de edicao."
+      }
+    },
+    {
+      "name": "09 - [Banco] Alterar so alguns campos (PATCH)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"favorito\": true,\n  \"atualizadoEm\": \"2026-10-25T19:00:00Z\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/musicas/{{idMusica}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["musicas", "{{idMusica}}"]
+        },
+        "description": "PATCH altera apenas os campos enviados e mantem o resto do documento. E a diferenca pratica para o PUT - aqui so marcamos como favorito."
+      }
+    },
+    {
+      "name": "10 - [Banco] Excluir musica (DELETE)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 204 No Content', function () {",
+              "    pm.response.to.have.status(204);",
+              "});",
+              "",
+              "pm.test('resposta vem sem corpo', function () {",
+              "    pm.expect(pm.response.text()).to.be.empty;",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/musicas/{{idMusica}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["musicas", "{{idMusica}}"]
+        },
+        "description": "Exclui o documento. 204 significa 'deu certo e nao tenho nada para devolver'. Na tela, a confirmacao acontece antes desta requisicao."
+      }
+    },
+    {
+      "name": "11 - [Banco] Conferir que foi excluida (GET 404)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 404 Not Found', function () {",
+              "    pm.response.to.have.status(404);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/musicas/{{idMusica}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["musicas", "{{idMusica}}"]
+        },
+        "description": "Prova que o DELETE funcionou: o mesmo id agora responde 404."
+      }
+    },
+    {
+      "name": "12 - [Banco] Sem autenticacao (401)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 401 Unauthorized', function () {",
+              "    pm.response.to.have.status(401);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/musicas", "host": ["{{baseUrl}}"], "path": ["musicas"] },
+        "description": "Mostra que a API exige autenticacao: sem o Basic admin/secret o RESTHeart responde 401."
+      }
+    }
+  ]
+}
