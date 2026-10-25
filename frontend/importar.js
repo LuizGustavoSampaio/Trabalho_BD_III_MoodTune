@@ -1,38 +1,17 @@
 /*
- * MoodTune - script de importacao (parte do Henrique)
+ * MoodTune - importacao das musicas (parte do Henrique)
  *
- * O que ele faz, em ordem, para cada musica da lista scripts/musicas.json:
- *   1. GET na iTunes Search API  -> titulo, artista, album, duracao, capa e previa de 30s
- *   2. GET na LRCLIB             -> letra (so para recortar UM trecho; a letra inteira nao e salva)
- *   3. POST no RESTHeart         -> grava o documento na colecao "musicas" do MongoDB
+ * Roda no navegador, pelo botao "Importar musicas" da pagina. Para cada item de
+ * musicas.json: consulta o iTunes, consulta a LRCLIB, monta o documento e faz POST
+ * no banco. E o "GET na API de origem + POST no banco NoSQL" que o trabalho pede.
  *
- * As duas APIs externas nao tem id em comum: a ligacao e feita por artista + titulo,
- * usando a duracao em segundos como confirmacao. Por isso consultamos o iTunes primeiro
- * e usamos os nomes que ELE devolve para perguntar a letra para a LRCLIB.
+ * Roda uma vez so: depois disso o site le tudo do banco, nunca mais das APIs externas.
  *
- * Nenhuma dependencia externa: Node 18+ ja tem fetch embutido.
- *
- * Como rodar (com o docker compose up -d ja rodando):
- *   node scripts/importar.js              importa tudo que ainda nao esta no banco
- *   node scripts/importar.js --teste      so consulta as APIs e mostra o resultado, nao grava nada
- *   node scripts/importar.js --limite=5   importa apenas as 5 primeiras (util para testar)
- *   node scripts/importar.js --limpar     APAGA todas as musicas do banco e importa tudo de novo
+ * Usa BANCO, CABECALHOS e conferir() definidos em app.js, que e carregado antes deste.
  */
 
-const fs = require('fs');
-const path = require('path');
-
-// ---------------------------------------------------------------------------
-// Configuracao
-// ---------------------------------------------------------------------------
-
-const API = process.env.MOODTUNE_API || 'http://localhost:8080';
-const COLECAO = 'musicas';
-const USUARIO = process.env.MOODTUNE_USER || 'admin';
-const SENHA = process.env.MOODTUNE_PASS || 'secret';
-
-// Cabecalho de autenticacao Basic: a palavra "Basic" + usuario:senha em base64.
-const AUTENTICACAO = 'Basic ' + Buffer.from(`${USUARIO}:${SENHA}`).toString('base64');
+// Lista do grupo: artista, titulo, humor e (opcional) um trecho escolhido a mao.
+const ARQUIVO_DA_LISTA = 'musicas.json';
 
 // Pausa entre uma musica e outra, para nao bombardear as APIs publicas.
 const PAUSA_MS = 600;
@@ -41,11 +20,11 @@ const PAUSA_MS = 600;
 // A LRCLIB limita bastante as consultas seguidas, por isso a espera dobra a cada tentativa.
 const TENTATIVAS = 5;
 
-// Flags digitadas na linha de comando.
-const args = process.argv.slice(2);
-const MODO_TESTE = args.includes('--teste');
-const LIMPAR_ANTES = args.includes('--limpar');
-const LIMITE = Number((args.find((a) => a.startsWith('--limite=')) || '').split('=')[1]) || Infinity;
+// Palavras que denunciam uma versao que nao e a original (cover, ao vivo, remix...).
+const VERSOES_ALTERNATIVAS = [
+  'live', 'ao vivo', 'demo', 'mix', 'cover', 'karaoke', 'tribute',
+  'acoustic', 'acustico', 'instrumental', 'version', 'versao', 'edit',
+];
 
 // ---------------------------------------------------------------------------
 // Ajudantes
@@ -65,7 +44,7 @@ function montarUrl(base, parametros) {
 /**
  * fetch com retentativa. As APIs publicas as vezes respondem 503 ("server is busy")
  * quando recebem varias consultas seguidas - isso nao e erro nosso, e so pedir de novo
- * esperando um pouco mais a cada tentativa (1s, 2s, 4s).
+ * esperando um pouco mais a cada tentativa (1s, 2s, 4s...).
  * Status 404 NAO e retentado: ali a resposta e definitiva (nao existe).
  */
 async function buscarComRetentativa(url) {
@@ -93,17 +72,11 @@ function normalizar(texto) {
   return (texto || '')
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // remove os acentos que o normalize separou da letra
+    .replace(/[̀-ͯ]/g, '') // remove os acentos que o normalize separou da letra
     .replace(/[^\p{L}\p{N} ]/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
-
-// Palavras que denunciam uma versao que nao e a original (cover, ao vivo, remix...).
-const VERSOES_ALTERNATIVAS = [
-  'live', 'ao vivo', 'demo', 'mix', 'cover', 'karaoke', 'tribute',
-  'acoustic', 'acustico', 'instrumental', 'version', 'versao', 'edit',
-];
 
 /**
  * Entre os resultados do iTunes, escolhe o que mais parece com o que foi pedido.
@@ -152,7 +125,7 @@ async function buscarNoItunes(artista, titulo) {
   const url = montarUrl('https://itunes.apple.com/search', {
     term: `${artista} ${titulo}`,
     entity: 'song',
-    country: 'BR',
+    country: 'BR', // sem isto a busca cai na loja americana e devolve outras musicas
     limit: 25, // pedimos varias e escolhemos a melhor logo abaixo
   });
 
@@ -256,20 +229,14 @@ function escolherTrecho(letra) {
 
 /** Garante que a colecao existe. 201 = criada agora, 200 = ja existia. */
 async function criarColecao() {
-  const resposta = await fetch(`${API}/${COLECAO}`, {
-    method: 'PUT',
-    headers: { Authorization: AUTENTICACAO },
-  });
+  const resposta = await fetch(BANCO, { method: 'PUT', headers: CABECALHOS });
   if (!resposta.ok) throw new Error(`nao consegui criar a colecao (status ${resposta.status})`);
 }
 
 /** Evita duplicar: pergunta ao banco se ja existe musica com o mesmo titulo e artista. */
 async function jaExisteNoBanco(titulo, artista) {
-  const url = montarUrl(`${API}/${COLECAO}`, {
-    filter: JSON.stringify({ titulo, artista }),
-    pagesize: 1,
-  });
-  const resposta = await fetch(url, { headers: { Authorization: AUTENTICACAO } });
+  const filtro = encodeURIComponent(JSON.stringify({ titulo, artista }));
+  const resposta = await fetch(`${BANCO}?filter=${filtro}&pagesize=1`, { headers: CABECALHOS });
   if (!resposta.ok) return false;
 
   const lista = await resposta.json();
@@ -278,35 +245,14 @@ async function jaExisteNoBanco(titulo, artista) {
 
 /** Insere o documento. O RESTHeart devolve 201 e o id no cabecalho Location. */
 async function gravarNoBanco(documento) {
-  const resposta = await fetch(`${API}/${COLECAO}`, {
+  const resposta = await fetch(BANCO, {
     method: 'POST',
-    headers: { Authorization: AUTENTICACAO, 'Content-Type': 'application/json' },
+    headers: CABECALHOS,
     body: JSON.stringify(documento),
   });
   if (!resposta.ok) throw new Error(`POST falhou com status ${resposta.status}`);
 
-  const local = resposta.headers.get('Location') || '';
-  return local.split('/').pop();
-}
-
-/**
- * Apaga todos os documentos da colecao (usado so com a flag --limpar).
- * O * na URL e a exclusao em massa do RESTHeart. Ele recusa filter={} vazio (status 400),
- * de proposito, para ninguem apagar uma colecao inteira sem querer; por isso pedimos
- * "todo documento que tenha _id", que na pratica e todo mundo.
- */
-async function limparColecao() {
-  const url = montarUrl(`${API}/${COLECAO}/*`, {
-    filter: JSON.stringify({ _id: { $exists: true } }),
-  });
-  const resposta = await fetch(url, {
-    method: 'DELETE',
-    headers: { Authorization: AUTENTICACAO },
-  });
-  if (!resposta.ok) throw new Error(`nao consegui limpar a colecao (status ${resposta.status})`);
-
-  const resultado = await resposta.json();
-  return resultado.deleted || 0;
+  return (resposta.headers.get('Location') || '').split('/').pop();
 }
 
 // ---------------------------------------------------------------------------
@@ -343,44 +289,38 @@ function montarDocumento({ item, doItunes, trecho }) {
 }
 
 // ---------------------------------------------------------------------------
-// Programa principal
+// A importacao em si
 // ---------------------------------------------------------------------------
 
-async function principal() {
-  const caminhoLista = path.join(__dirname, 'musicas.json');
-  const lista = JSON.parse(fs.readFileSync(caminhoLista, 'utf8')).slice(0, LIMITE);
+/**
+ * Importa todas as musicas da lista.
+ * Recebe uma funcao avisar(texto) para ir mostrando o andamento na tela.
+ */
+async function importarTudo(avisar = console.log) {
+  const resposta = await fetch(ARQUIVO_DA_LISTA);
+  if (!resposta.ok) throw new Error(`nao achei ${ARQUIVO_DA_LISTA} (status ${resposta.status})`);
+  const lista = await resposta.json();
 
-  console.log(`MoodTune - importacao de ${lista.length} musica(s)`);
-  console.log(`API do banco: ${API}/${COLECAO}`);
-  if (MODO_TESTE) console.log('MODO TESTE: nada sera gravado no banco.\n');
-  else console.log('');
-
-  if (!MODO_TESTE) {
-    await criarColecao();
-    if (LIMPAR_ANTES) {
-      const apagadas = await limparColecao();
-      console.log(`Colecao limpa (--limpar): ${apagadas} musica(s) apagada(s).\n`);
-    }
-  }
+  avisar(`Importando ${lista.length} musicas...`);
+  await criarColecao();
 
   const contador = { gravadas: 0, puladas: 0, semLetra: 0, falhas: 0 };
-  const problemas = [];
 
   for (const [indice, item] of lista.entries()) {
-    const posicao = `[${String(indice + 1).padStart(2, '0')}/${lista.length}]`;
+    const posicao = `[${indice + 1}/${lista.length}]`;
 
-    // O try/catch por musica e o que faz o script nao parar quando uma falha:
+    // O try/catch por musica e o que faz a importacao nao parar quando uma falha:
     // registramos o erro, contamos e seguimos para a proxima.
     try {
       // O iTunes vem primeiro de proposito: o documento e gravado com o titulo e o artista
-      // que ELE devolve ("Pais Tropical" na nossa lista vira "Pais Tropical" com acento).
-      // Se checassemos a duplicata usando os nomes da lista, nao acharíamos o que ja esta
-      // no banco e o script duplicaria tudo a cada execucao.
+      // que ELE devolve ("Pais Tropical" da nossa lista vira "Pais Tropical" com acento).
+      // Se checassemos a duplicata usando os nomes da lista, nao achariamos o que ja esta
+      // no banco e a importacao duplicaria tudo a cada execucao.
       const doItunes = await buscarNoItunes(item.artista, item.titulo);
 
-      if (!MODO_TESTE && (await jaExisteNoBanco(doItunes.titulo, doItunes.artista))) {
-        console.log(`${posicao} ja estava no banco, pulando: ${doItunes.artista} - ${doItunes.titulo}`);
+      if (await jaExisteNoBanco(doItunes.titulo, doItunes.artista)) {
         contador.puladas++;
+        avisar(`${posicao} ja estava no banco: ${doItunes.artista} - ${doItunes.titulo}`);
         continue;
       }
 
@@ -390,53 +330,53 @@ async function principal() {
         const letra = await buscarLetra(doItunes);
         trecho = escolherTrecho(letra && letra.plainLyrics);
       }
+      if (!trecho) contador.semLetra++;
 
-      if (!trecho) {
-        contador.semLetra++;
-        problemas.push(`${item.artista} - ${item.titulo}: sem letra na LRCLIB (trecho vazio)`);
-      }
-
-      const documento = montarDocumento({ item, doItunes, trecho });
-
-      if (MODO_TESTE) {
-        console.log(`${posicao} ${documento.artista} - ${documento.titulo} (${documento.duracao}s, ${documento.humor})`);
-        console.log(`        trecho: ${trecho || '(nenhum)'}`);
-      } else {
-        const id = await gravarNoBanco(documento);
-        contador.gravadas++;
-        console.log(`${posicao} gravada: ${documento.artista} - ${documento.titulo} -> id ${id}`);
-      }
+      await gravarNoBanco(montarDocumento({ item, doItunes, trecho }));
+      contador.gravadas++;
+      avisar(`${posicao} gravada: ${doItunes.artista} - ${doItunes.titulo}`);
     } catch (erro) {
       contador.falhas++;
-      problemas.push(`${item.artista} - ${item.titulo}: ${erro.message}`);
-      console.log(`${posicao} FALHOU: ${item.artista} - ${item.titulo} (${erro.message})`);
+      avisar(`${posicao} FALHOU: ${item.artista} - ${item.titulo} (${erro.message})`);
     }
 
     await esperar(PAUSA_MS);
   }
 
-  console.log('\n--- resumo ---');
-  console.log(`gravadas:          ${contador.gravadas}`);
-  console.log(`ja existiam:       ${contador.puladas}`);
-  console.log(`sem letra:         ${contador.semLetra}`);
-  console.log(`falhas:            ${contador.falhas}`);
+  avisar(
+    `Fim: ${contador.gravadas} gravadas, ${contador.puladas} ja existiam, ` +
+      `${contador.semLetra} sem letra, ${contador.falhas} falhas.`
+  );
+  if (contador.falhas > 0) avisar('Clique de novo para tentar so as que faltaram.');
 
-  if (problemas.length > 0) {
-    console.log('\nitens para revisar na mao:');
-    for (const problema of problemas) console.log(`  - ${problema}`);
-  }
-
-  if (!MODO_TESTE) {
-    const resposta = await fetch(`${API}/${COLECAO}?pagesize=1000`, {
-      headers: { Authorization: AUTENTICACAO },
-    });
-    const todas = await resposta.json();
-    console.log(`\ntotal de musicas no banco agora: ${todas.length}`);
-  }
+  return contador;
 }
 
-principal().catch((erro) => {
-  console.error('\nErro geral na importacao:', erro.message);
-  console.error('O docker compose esta rodando? Teste: curl -u admin:secret http://localhost:8080/musicas');
-  process.exit(1);
+// ---------------------------------------------------------------------------
+// Liga o botao da pagina
+// ---------------------------------------------------------------------------
+
+document.addEventListener('DOMContentLoaded', function () {
+  const botao = document.getElementById('botao-importar');
+  const andamento = document.getElementById('andamento');
+  if (!botao) return;
+
+  botao.addEventListener('click', async function () {
+    botao.disabled = true;
+    andamento.textContent = '';
+
+    const avisar = (texto) => {
+      andamento.textContent += texto + '\n';
+      andamento.scrollTop = andamento.scrollHeight;
+    };
+
+    try {
+      await importarTudo(avisar);
+    } catch (erro) {
+      avisar(`Erro: ${erro.message}`);
+      avisar('O docker compose esta rodando? Teste: http://localhost:8080/musicas');
+    } finally {
+      botao.disabled = false;
+    }
+  });
 });

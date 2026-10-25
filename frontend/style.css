@@ -37,3 +37,45 @@ img {
   max-width: 100%;
   height: auto;
 }
+
+/* --- bloco da importacao --- */
+
+#importacao {
+  background: #fff;
+  border: 1px solid #dcdce6;
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+#importacao h2 {
+  margin-top: 0;
+  font-size: 1.1rem;
+}
+
+button {
+  padding: 0.6rem 1.2rem;
+  font: inherit;
+  color: #fff;
+  background: #4a3aff;
+  border: 0;
+  border-radius: 0.375rem;
+  cursor: pointer;
+}
+
+button:disabled {
+  background: #9a9ab5;
+  cursor: progress;
+}
+
+/* O andamento pode ficar longo: rola dentro da propria caixa. */
+#andamento:not(:empty) {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  max-height: 16rem;
+  overflow: auto;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  background: #1a1a2e;
+  color: #e6e6f0;
+  border-radius: 0.375rem;
+}

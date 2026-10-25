@@ -15,7 +15,7 @@ O MoodTune é um site onde a pessoa escolhe **como está se sentindo** e recebe 
 
 ## Como rodar
 
-Pré-requisitos: Docker e Node.js 18 ou mais novo.
+Pré-requisito: Docker.
 
 ```
 # 1. sobe o MongoDB e o RESTHeart
@@ -23,7 +23,6 @@ docker compose up -d
 
 # 2. importa as músicas das APIs externas para o banco (demora ~1 minuto)
 node scripts/importar.js
-
 ```
 
 Para conferir se subiu:
@@ -54,9 +53,8 @@ APIs externas (só GET, só na importação)         Banco                 Site
 ┌──────────────────────┐
 │ iTunes Search API    │  metadados, capa, prévia
 │ LRCLIB               │  letra (só o trecho)      ──►  MongoDB   ──►  frontend
-└──────────────────────┘     scripts/importar.js      + RESTHeart     (lê e grava
-                                                      :8080           só no banco)
-
+└──────────────────────┘      scripts/importar.js      + RESTHeart     (lê e grava
+                                                        :8080           só no banco)
 ```
 
 As duas APIs externas não têm id em comum. A ligação entre elas é feita por **artista + título**,
@@ -138,31 +136,29 @@ O `_id` volta no formato `{ "$oid": "..." }`.
 
 ## Script de importação
 
-`scripts/importar.js` — sem nenhuma dependência externa (usa o `fetch` embutido no Node 18+).
+`frontend/importar.js` — roda no navegador, pelo botão **Importar músicas**. Sem biblioteca
+nenhuma, só o `fetch` do próprio navegador.
 
-Ele lê a lista do grupo em `scripts/musicas.json` (artista, título, humor e, opcionalmente, um
+Ele lê a lista do grupo em `frontend/musicas.json` (artista, título, humor e, opcionalmente, um
 trecho escolhido à mão) e, para cada música: consulta o iTunes, consulta a LRCLIB, monta o documento
 e faz `POST` no banco.
 
-```
-node scripts/importar.js               # importa o que ainda não está no banco
+```bash
+node scripts/importar.js              # importa o que ainda não está no banco
 node scripts/importar.js --teste      # só consulta as APIs e mostra o resultado, não grava
 node scripts/importar.js --limite=5   # importa só as 5 primeiras
 node scripts/importar.js --limpar     # APAGA tudo e importa de novo
-
 ```
 
 Decisões que vale explicar:
 
-* **Não para quando uma música falha.** Cada música roda dentro de um `try/catch`; o erro é contado
+- **Não para quando uma música falha.** Cada música roda dentro de um `try/catch`; o erro é contado
   e listado no resumo do final, e o script segue para a próxima.
-
-* **Não duplica.** Antes de gravar, pergunta ao banco se já existe música com o mesmo título e
+- **Não duplica.** Antes de gravar, pergunta ao banco se já existe música com o mesmo título e
   artista. A consulta ao iTunes vem **antes** dessa checagem de propósito: o documento é gravado com
   o nome que o iTunes devolve (`Pais Tropical` da nossa lista vira `País Tropical`), então comparar
   usando o nome da lista não acharia o que já está lá e duplicaria tudo a cada execução.
-
-* **Retentativa.** A LRCLIB responde 503 ("server is busy") quando recebe muitas consultas seguidas.
+- **Retentativa.** A LRCLIB responde 503 ("server is busy") quando recebe muitas consultas seguidas.
   O script tenta de novo até 5 vezes, dobrando a espera (1s, 2s, 4s...). 404 não é retentado, porque
   ali a resposta é definitiva.
 
@@ -177,7 +173,8 @@ Decisões que vale explicar:
 Estado atual: **35 músicas** no banco, distribuídas em 6 humores (feliz, triste, apaixonado,
 nostálgico, animado, calmo).
 
-Três músicas ficaram gravadas em versão alternativa — `Good Riddance [Live]`, `Back To Black (Original Demo)` e `Garota de Ipanema (Live In San Francisco, 2003)`. Não é falha do script: a
+Três músicas ficaram gravadas em versão alternativa — `Good Riddance [Live]`, `Back To Black
+(Original Demo)` e `Garota de Ipanema (Live In San Francisco, 2003)`. Não é falha do script: a
 versão de estúdio delas **não existe no catálogo do iTunes Brasil** (conferimos buscando 50
 resultados). O que está no banco é o melhor que a API oferece, e é dado real dela.
 
@@ -202,25 +199,39 @@ npx newman run postman/colecao.json
 
 Última execução: **12 requisições, 22 asserções, 0 falhas.**
 
+## Uso de IA
+
+Conforme permitido pelo professor, registramos onde a IA (Claude) foi usada:
+
+- **`scripts/importar.js`** — escrito com apoio da IA: estrutura do script, tratamento de erros,
+  retentativa e os critérios de escolha do resultado do iTunes e do trecho da letra. O código foi
+  revisado e testado pelo grupo, e os comentários explicam cada decisão.
+- **`postman/colecao.json`** — coleção e testes gerados com apoio da IA, depois executados e
+  conferidos com o Newman contra o banco real.
+- **`frontend/app.js`** — as funções que falam com o banco (os cinco métodos HTTP) foram escritas
+  com apoio da IA, seguindo o código de exemplo do enunciado.
+- **`README.md`** — redação com apoio da IA.
+- A lista de músicas, os humores e a modelagem dos campos foram decididos pelo grupo.
+
 ## Estrutura do repositório
 
 ```
 Trabalho_BD_III_MoodTune/
 ├── docker-compose.yml       MongoDB + RESTHeart
 ├── frontend/
-│   ├── index.html            página do site
-│   ├── app.js                as requisições HTTP ao banco
-│   └── style.css             estilos
+│   ├── index.html           página do site
+│   ├── app.js               as requisições HTTP ao banco
+│   └── style.css            estilos
 ├── postman/colecao.json     coleção exportada, com os testes
 ├── scripts/
 │   ├── importar.js          GET nas APIs + POST no banco
-│   └── musicas.json          lista do grupo (artista, título, humor)
+│   └── musicas.json         lista do grupo (artista, título, humor)
 └── README.md
 
 ```
 
-É a estrutura pedida no enunciado. A pasta `scripts/` é a única adição: a importação roda uma vez
-pelo Node, fora do navegador, para não depender de alguém abrir a tela para o banco ser populado.
+É exatamente a estrutura pedida no enunciado — `importar.js` e `musicas.json` são arquivos do
+frontend, não uma pasta nova.
 
 ## Situação de cada requisito
 
