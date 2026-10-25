@@ -17,13 +17,29 @@ O MoodTune é um site onde a pessoa escolhe **como está se sentindo** e recebe 
 
 Pré-requisito: Docker.
 
-```
-# 1. sobe o MongoDB e o RESTHeart
-docker compose up -d
+**1.** Suba o banco:
 
-# 2. importa as músicas das APIs externas para o banco (demora ~1 minuto)
-node scripts/importar.js
+```bash
+docker compose up -d
 ```
+
+**2.** Abra o site. Enquanto o container do frontend não estiver no `docker-compose.yml` (é o
+ponto extra, ainda pendente), sirva a pasta por HTTP:
+
+```bash
+npx serve frontend -l 3000      # abre em http://localhost:3000
+```
+
+ou clique com o botão direito em `frontend/index.html` no VS Code e escolha **Open with Live
+Server**. Não adianta abrir o arquivo direto pelo explorador (`file://`): nesse modo o navegador
+bloqueia a leitura do `musicas.json`.
+
+**3.** Clique em **Importar músicas**. O banco sobe vazio, e esse botão busca as músicas no iTunes
+e as letras na LRCLIB e grava tudo no MongoDB — leva cerca de um minuto e só precisa ser feito uma
+vez. Depois disso o site lê sempre do banco.
+
+Se a importação parar no meio (as APIs públicas às vezes respondem "estou ocupada"), é só clicar
+de novo: o que já entrou é pulado, nada duplica.
 
 Para conferir se subiu:
 
@@ -53,7 +69,7 @@ APIs externas (só GET, só na importação)         Banco                 Site
 ┌──────────────────────┐
 │ iTunes Search API    │  metadados, capa, prévia
 │ LRCLIB               │  letra (só o trecho)      ──►  MongoDB   ──►  frontend
-└──────────────────────┘      scripts/importar.js      + RESTHeart     (lê e grava
+└──────────────────────┘     frontend/importar.js      + RESTHeart     (lê e grava
                                                         :8080           só no banco)
 ```
 
@@ -143,12 +159,9 @@ Ele lê a lista do grupo em `frontend/musicas.json` (artista, título, humor e, 
 trecho escolhido à mão) e, para cada música: consulta o iTunes, consulta a LRCLIB, monta o documento
 e faz `POST` no banco.
 
-```bash
-node scripts/importar.js              # importa o que ainda não está no banco
-node scripts/importar.js --teste      # só consulta as APIs e mostra o resultado, não grava
-node scripts/importar.js --limite=5   # importa só as 5 primeiras
-node scripts/importar.js --limpar     # APAGA tudo e importa de novo
-```
+Roda no navegador de propósito: assim quem for corrigir o trabalho precisa apenas do Docker, sem
+instalar mais nada. As três APIs liberam CORS, então o navegador consegue chamar as duas externas
+e o RESTHeart direto.
 
 Decisões que vale explicar:
 
@@ -201,17 +214,10 @@ npx newman run postman/colecao.json
 
 ## Uso de IA
 
-Conforme permitido pelo professor, registramos onde a IA (Claude) foi usada:
-
-- **`scripts/importar.js`** — escrito com apoio da IA: estrutura do script, tratamento de erros,
-  retentativa e os critérios de escolha do resultado do iTunes e do trecho da letra. O código foi
-  revisado e testado pelo grupo, e os comentários explicam cada decisão.
-- **`postman/colecao.json`** — coleção e testes gerados com apoio da IA, depois executados e
-  conferidos com o Newman contra o banco real.
-- **`frontend/app.js`** — as funções que falam com o banco (os cinco métodos HTTP) foram escritas
-  com apoio da IA, seguindo o código de exemplo do enunciado.
-- **`README.md`** — redação com apoio da IA.
-- A lista de músicas, os humores e a modelagem dos campos foram decididos pelo grupo.
+Conforme permitido pelo enunciado: a interface (`index.html`, `style.css`, `theme.js`) foi feita
+com apoio do Codex; a importação, as requisições HTTP, a coleção do Postman e este README, com
+apoio do Claude. O grupo decidiu a lista de músicas, os humores e a modelagem dos campos, e
+revisou e testou todo o código.
 
 ## Estrutura do repositório
 
@@ -220,86 +226,102 @@ Trabalho_BD_III_MoodTune/
 ├── docker-compose.yml       MongoDB + RESTHeart
 ├── frontend/
 │   ├── index.html           página do site
-│   ├── app.js               as requisições HTTP ao banco
-│   └── style.css            estilos
-├── postman/colecao.json     coleção exportada, com os testes
-├── scripts/
-│   ├── importar.js          GET nas APIs + POST no banco
+│   ├── style.css            estilos, com tema claro e escuro
+│   ├── theme.js             alternância de tema (interface)
+│   ├── app.js               as requisições HTTP ao banco (API)
+│   ├── importar.js          GET nas APIs externas + POST no banco (API)
 │   └── musicas.json         lista do grupo (artista, título, humor)
+├── postman/colecao.json     coleção exportada, com os testes
 └── README.md
-
 ```
 
 É exatamente a estrutura pedida no enunciado — `importar.js` e `musicas.json` são arquivos do
 frontend, não uma pasta nova.
 
+**Por que três arquivos `.js` e não um só.** Cada um tem uma responsabilidade, e a divisão
+acompanha quem fez o quê:
+
+| Arquivo | O que faz | De quem |
+|---|---|---|
+| `theme.js` | alterna tema claro/escuro e lembra a escolha | Interface (Gula) |
+| `app.js` | as requisições HTTP ao banco: os cinco métodos | API (Henrique) |
+| `importar.js` | busca nas APIs externas e popula a coleção | API (Henrique) |
+
+Juntar tudo num arquivo só funcionaria, mas atrapalharia: ficaria um arquivo longo misturando
+assuntos, cada alteração de um integrante esbarraria na do outro no Git, e seria mais difícil
+explicar na apresentação. Separar por responsabilidade é o normal, e nesta quantidade não traz
+custo nenhum.
+
+A única regra a respeitar é a **ordem no `index.html`**: `app.js` vem antes de `importar.js`,
+porque a importação usa o `BANCO` e os `CABECALHOS` definidos lá.
+
 ## Situação de cada requisito
 
 **1. Modelagem NoSQL** — 1,5 ponto
 
-* \[x\] 1 coleção (`musicas`) com 35 documentos importados das APIs (mínimo era 30)
+* [x] 1 coleção (`musicas`) com 35 documentos importados das APIs (mínimo era 30)
 
-* \[x\] 6+ campos, com 1 número (`duracao`), 1 data (`criadoEm`) e 1 lista embutida (`tags`)
+* [x] 6+ campos, com 1 número (`duracao`), 1 data (`criadoEm`) e 1 lista embutida (`tags`)
 
-* \[x\] Campos criados pelo grupo: `humor`, `trecho`, `favorito`, `atualizadoEm`
+* [x] Campos criados pelo grupo: `humor`, `trecho`, `favorito`, `atualizadoEm`
 
-* \[x\] Exemplo de documento no README, com a justificativa de embutido x referenciado
+* [x] Exemplo de documento no README, com a justificativa de embutido x referenciado
 
 **2. Métodos HTTP** — 2,5 pontos
 
-* \[x\] GET nas APIs de origem para importar
+* [x] GET nas APIs de origem para importar
 
-* \[x\] POST gravando cada documento no banco
+* [x] POST gravando cada documento no banco
 
-* \[x\] GET no banco: listar todos e buscar um pelo id
+* [x] GET no banco: listar todos e buscar um pelo id
 
-* \[x\] PUT substituindo o documento inteiro
+* [x] PUT substituindo o documento inteiro
 
-* \[x\] PATCH alterando um único campo (`favorito`)
+* [x] PATCH alterando um único campo (`favorito`)
 
-* \[x\] DELETE excluindo o documento
+* [x] DELETE excluindo o documento
 
-* \[x\] Coleção do Postman exportada com todas as requisições acima
+* [x] Coleção do Postman exportada com todas as requisições acima
 
-* \[ \] Confirmação antes de excluir (é na tela, fica com o frontend)
+* [ ] Confirmação antes de excluir (é na tela, fica com o frontend)
 
 **3. Frontend** — 2,0 pontos (Gula)
 
-* \[ \] Listagem com busca por texto e pelo menos 1 filtro
+* [ ] Listagem com busca por texto e pelo menos 1 filtro
 
-* \[ \] Formulário de criar/editar com validação
+* [ ] Formulário de criar/editar com validação
 
-* \[ \] Mensagens de carregamento, sucesso e erro, mostrando o status HTTP
+* [ ] Mensagens de carregamento, sucesso e erro, mostrando o status HTTP
 
-* \[ \] Layout que funcione no celular
+* [x] Layout que funcione no celular — verificado em 390, 768 e 1440 px, sem rolagem horizontal
 
 **4. Geração de informação (painel)** — 2,0 pontos (Gula)
 
-* \[ \] 4+ indicadores numéricos
+* [ ] 4+ indicadores numéricos
 
-* \[ \] 2+ gráficos de tipos diferentes (Chart.js)
+* [ ] 2+ gráficos de tipos diferentes (Chart.js)
 
-* \[ \] 1 ranking (top 5 ou 10) e 1 agrupamento por categoria (músicas por humor)
+* [ ] 1 ranking (top 5 ou 10) e 1 agrupamento por categoria (músicas por humor)
 
-* \[ \] Indicadores se atualizam sozinhos após POST, PUT, PATCH e DELETE
+* [ ] Indicadores se atualizam sozinhos após POST, PUT, PATCH e DELETE
 
-* \[ \] Parágrafo no README com a conclusão que os dados permitem tirar
+* [ ] Parágrafo no README com a conclusão que os dados permitem tirar
 
 **5. Docker e documentação** — 1,0 ponto
 
-* \[x\] `docker-compose.yml` na raiz, com MongoDB e RESTHeart
+* [x] `docker-compose.yml` na raiz, com MongoDB e RESTHeart
 
-* \[x\] Volume nomeado (`dados-mongo`)
+* [x] Volume nomeado (`dados-mongo`)
 
-* \[x\] `docker compose up -d` sobe tudo sem passo manual além de criar a coleção
+* [x] `docker compose up -d` sobe tudo sem passo manual além de criar a coleção
 
-* \[x\] README explica como subir, parar e apagar o ambiente
+* [x] README explica como subir, parar e apagar o ambiente
 
-* \[ \] Prints do painel no README (depende do painel)
+* [ ] Prints do painel no README (depende do painel)
 
 **Ponto extra (+1,0)** — frontend em container nginx no mesmo compose (`localhost:3000`)
 
-* \[ \] Acrescentar o serviço `frontend` ao `docker-compose.yml`
+* [ ] Acrescentar o serviço `frontend` ao `docker-compose.yml`
 
 ## Observação sobre o tema
 
@@ -308,14 +330,15 @@ O próprio enunciado permite ("um grupo pode propor outra API pública, desde qu
 antes") — só é preciso confirmar que essa aprovação foi registrada.
 ## Protótipo inicial da interface (Gula)
 
-A primeira versão visual está em `index.html`, `style.css` e `theme.js`, na raiz.
-Ela contém a estrutura da tela Descobrir, espaços de humor, busca, filtros e músicas,
-layout responsivo e alternância entre temas claro e escuro, com preferência local.
-Esta versão é um protótipo visual separado: ainda não utiliza as funções do banco.
+A primeira versão visual nasceu solta na raiz do repositório e **já foi integrada ao
+`frontend/`** — é o que você vê ao abrir o site. Ela traz a estrutura da tela Descobrir, os
+espaços de humor, busca, filtros e músicas, layout responsivo e alternância entre temas claro e
+escuro, com a preferência guardada no navegador.
 
-A base integrada do projeto continua em `frontend/`, com as requisições HTTP em
-`frontend/app.js` e a importação em `frontend/importar.js`. A próxima etapa da interface
-será integrar o visual a essa estrutura, preservando a importação e as funções existentes.
-Para conferir o protótipo visual, abra o `index.html` da raiz no navegador.
+Nesta etapa é visual: a busca e os filtros estão desabilitados e os cards são exemplos. A próxima
+etapa é ligar essa tela às funções que já existem em `frontend/app.js` (`listarMusicas`,
+`listarPorHumor`, `buscarMusica`, `criarMusica`, `substituirMusica`, `favoritarMusica` e
+`excluirMusica`), trocando os cards de exemplo pelas músicas reais do banco.
 
-A estrutura e o tema do protótipo foram desenvolvidos com apoio do Codex.
+O bloco "Carregar as músicas", no fim da página, é a importação e sai da tela quando a listagem
+real estiver pronta.
