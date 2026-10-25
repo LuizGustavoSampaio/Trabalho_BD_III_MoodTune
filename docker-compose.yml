@@ -1,26 +1,20 @@
-version: '3.8'
-
 services:
   mongodb:
-    image: mongo:7.0
-    container_name: moodtune-mongodb
+    image: mongo:7
     restart: unless-stopped
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
-      MONGO_INITDB_DATABASE: ${MONGO_DB_NAME}
     ports:
-      - "${MONGO_PORT}:27017"
+      - "27017:27017" 
     volumes:
-      - moodtune_mongo_data:/data/db
-    networks:
-      - moodtune_network
+      - dados-mongo:/data/db 
+
+  restheart:
+    image: softinstigate/restheart:8
+    depends_on:
+      - mongodb
+    environment:
+      RHO: '/mclient/connection-string->"mongodb://mongodb:27017";/http-listener/host->"0.0.0.0"'
+    ports:
+      - "8080:8080"
 
 volumes:
-  moodtune_mongo_data:
-    name: moodtune-db-data
-
-networks:
-  moodtune_network:
-    name: moodtune-backend-network
-    driver: bridge
+  dados-mongo:
