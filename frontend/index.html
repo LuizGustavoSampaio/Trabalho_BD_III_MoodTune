@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MoodTune</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>MoodTune</h1>
+      <p>Escolha como voce esta se sentindo e receba uma musica.</p>
+    </header>
+
+    <main>
+      <section id="importacao">
+        <h2>Carregar as musicas</h2>
+        <p>
+          Primeira vez rodando o projeto? O banco sobe vazio. Este botao busca as musicas no
+          iTunes e as letras na LRCLIB e grava tudo no MongoDB. Leva cerca de um minuto, e so
+          precisa ser feito uma vez &mdash; depois o site le sempre do banco.
+        </p>
+        <button id="botao-importar" type="button">Importar musicas</button>
+        <pre id="andamento" aria-live="polite"></pre>
+      </section>
+
+      <!--
+        Daqui para baixo e a parte da Interface (Gula):
+          - listagem das musicas, com busca por texto e filtro por humor
+          - formulario de criar/editar, com validacao
+          - mensagens de carregando / sucesso / erro, mostrando o status HTTP
+          - painel com indicadores, graficos (Chart.js), ranking e agrupamento por humor
+
+        As funcoes que conversam com o banco ja estao prontas em app.js
+        (listarMusicas, listarPorHumor, buscarMusica, criarMusica, substituirMusica,
+        favoritarMusica, excluirMusica).
+      -->
+    </main>
+
+    <script src="app.js"></script>
+    <script src="importar.js"></script>
+  </body>
+</html>

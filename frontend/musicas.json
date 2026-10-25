@@ -1,0 +1,42 @@
+[
+  { "artista": "Pharrell Williams", "titulo": "Happy", "humor": "feliz" },
+  { "artista": "Jorge Ben Jor", "titulo": "Pais Tropical", "humor": "feliz" },
+  { "artista": "Katy Perry", "titulo": "Firework", "humor": "feliz" },
+  { "artista": "Earth, Wind & Fire", "titulo": "September", "humor": "feliz" },
+  { "artista": "Tim Maia", "titulo": "Sossego", "humor": "feliz" },
+  { "artista": "Natiruts", "titulo": "Quero Ser Feliz Tambem", "humor": "feliz" },
+
+  { "artista": "Adele", "titulo": "Someone Like You", "humor": "triste" },
+  { "artista": "Radiohead", "titulo": "Creep", "humor": "triste" },
+  { "artista": "Johnny Cash", "titulo": "Hurt", "humor": "triste" },
+  { "artista": "Legiao Urbana", "titulo": "Pais e Filhos", "humor": "triste" },
+  { "artista": "Amy Winehouse", "titulo": "Back to Black", "humor": "triste" },
+
+  { "artista": "Coldplay", "titulo": "Yellow", "humor": "apaixonado", "trecho": "Look at the stars, look how they shine for you" },
+  { "artista": "Ed Sheeran", "titulo": "Perfect", "humor": "apaixonado" },
+  { "artista": "Djavan", "titulo": "Oceano", "humor": "apaixonado" },
+  { "artista": "Elvis Presley", "titulo": "Can't Help Falling in Love", "humor": "apaixonado" },
+  { "artista": "Marisa Monte", "titulo": "Ainda Bem", "humor": "apaixonado" },
+  { "artista": "John Legend", "titulo": "All of Me", "humor": "apaixonado" },
+
+  { "artista": "Oasis", "titulo": "Wonderwall", "humor": "nostalgico" },
+  { "artista": "Legiao Urbana", "titulo": "Tempo Perdido", "humor": "nostalgico" },
+  { "artista": "Green Day", "titulo": "Good Riddance (Time of Your Life)", "humor": "nostalgico" },
+  { "artista": "Los Hermanos", "titulo": "Anna Julia", "humor": "nostalgico" },
+  { "artista": "The Beatles", "titulo": "Yesterday", "humor": "nostalgico" },
+  { "artista": "Engenheiros do Hawaii", "titulo": "Infinita Highway", "humor": "nostalgico" },
+
+  { "artista": "Queen", "titulo": "Don't Stop Me Now", "humor": "animado" },
+  { "artista": "AC/DC", "titulo": "Thunderstruck", "humor": "animado" },
+  { "artista": "Dua Lipa", "titulo": "Don't Start Now", "humor": "animado" },
+  { "artista": "Skank", "titulo": "Garota Nacional", "humor": "animado" },
+  { "artista": "Nirvana", "titulo": "Smells Like Teen Spirit", "humor": "animado" },
+  { "artista": "Charlie Brown Jr.", "titulo": "Zoio de Lula", "humor": "animado" },
+
+  { "artista": "Jack Johnson", "titulo": "Better Together", "humor": "calmo" },
+  { "artista": "Norah Jones", "titulo": "Don't Know Why", "humor": "calmo" },
+  { "artista": "Cartola", "titulo": "As Rosas Nao Falam", "humor": "calmo" },
+  { "artista": "Joao Gilberto", "titulo": "Garota de Ipanema", "humor": "calmo", "trecho": "Olha que coisa mais linda, mais cheia de graca" },
+  { "artista": "Bob Marley", "titulo": "Three Little Birds", "humor": "calmo" },
+  { "artista": "Caetano Veloso", "titulo": "Sozinho", "humor": "calmo" }
+]
