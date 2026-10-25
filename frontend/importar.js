@@ -1,38 +1,23 @@
 /*
- * MoodTune - importacao das musicas (parte do Henrique)
+ * MoodTune - importacao das musicas.
  *
- * Roda no navegador, pelo botao "Importar musicas" da pagina. Para cada item de
- * musicas.json: consulta o iTunes, consulta a LRCLIB, monta o documento e faz POST
- * no banco. E o "GET na API de origem + POST no banco NoSQL" que o trabalho pede.
- *
- * Roda uma vez so: depois disso o site le tudo do banco, nunca mais das APIs externas.
- *
- * Usa BANCO, CABECALHOS e conferir() definidos em app.js, que e carregado antes deste.
+ * Para cada item de musicas.json: GET no iTunes, GET na LRCLIB, POST no banco.
+ * Roda uma vez so; depois o site le tudo do banco.
+ * Usa BANCO e CABECALHOS definidos em app.js, carregado antes deste.
  */
 
-// Lista do grupo: artista, titulo, humor e (opcional) um trecho escolhido a mao.
 const ARQUIVO_DA_LISTA = 'musicas.json';
-
-// Pausa entre uma musica e outra, para nao bombardear as APIs publicas.
 const PAUSA_MS = 600;
-
-// Quantas vezes tentar de novo quando a API responde "estou ocupada" (429 ou 5xx).
-// A LRCLIB limita bastante as consultas seguidas, por isso a espera dobra a cada tentativa.
 const TENTATIVAS = 5;
 
-// Palavras que denunciam uma versao que nao e a original (cover, ao vivo, remix...).
+// Marcas de versao alternativa, para nao importar cover ou gravacao ao vivo.
 const VERSOES_ALTERNATIVAS = [
   'live', 'ao vivo', 'demo', 'mix', 'cover', 'karaoke', 'tribute',
   'acoustic', 'acustico', 'instrumental', 'version', 'versao', 'edit',
 ];
 
-// ---------------------------------------------------------------------------
-// Ajudantes
-// ---------------------------------------------------------------------------
-
 const esperar = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** Monta uma URL com os parametros ja codificados (acentos, espacos, & etc). */
 function montarUrl(base, parametros) {
   const url = new URL(base);
   for (const [chave, valor] of Object.entries(parametros)) {
@@ -41,11 +26,9 @@ function montarUrl(base, parametros) {
   return url.toString();
 }
 
-/**
- * fetch com retentativa. As APIs publicas as vezes respondem 503 ("server is busy")
- * quando recebem varias consultas seguidas - isso nao e erro nosso, e so pedir de novo
- * esperando um pouco mais a cada tentativa (1s, 2s, 4s...).
- * Status 404 NAO e retentado: ali a resposta e definitiva (nao existe).
+/*
+ * A LRCLIB responde 503 quando recebe muitas consultas seguidas. Nao e erro nosso:
+ * pedimos de novo, dobrando a espera. 404 nao e retentado, ali a resposta e definitiva.
  */
 async function buscarComRetentativa(url) {
   let ultimoStatus = 0;
@@ -53,7 +36,6 @@ async function buscarComRetentativa(url) {
   for (let tentativa = 1; tentativa <= TENTATIVAS; tentativa++) {
     const resposta = await fetch(url);
     const apiOcupada = resposta.status === 429 || resposta.status >= 500;
-
     if (!apiOcupada) return resposta;
 
     ultimoStatus = resposta.status;
@@ -63,26 +45,22 @@ async function buscarComRetentativa(url) {
   throw new Error(`API ocupada (status ${ultimoStatus}) apos ${TENTATIVAS} tentativas`);
 }
 
-// ---------------------------------------------------------------------------
-// Passo 1 - iTunes Search API (metadados, capa e previa)
-// ---------------------------------------------------------------------------
+// --- iTunes: metadados, capa e previa ---------------------------------------
 
-/** Tira acentos, pontuacao e maiusculas para poder comparar dois titulos. */
 function normalizar(texto) {
   return (texto || '')
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '') // remove os acentos que o normalize separou da letra
+    .replace(/[̀-ͯ]/g, '')
     .replace(/[^\p{L}\p{N} ]/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
-/**
- * Entre os resultados do iTunes, escolhe o que mais parece com o que foi pedido.
- * Precisa olhar ARTISTA e titulo: so pelo titulo, "Creep" do Stone Temple Pilots
- * empata com o do Radiohead, e "Good Riddance" do Boyce Avenue (cover) ganha do Green Day.
- * Por isso o artista vale muito mais na conta (x10) do que o titulo.
+/*
+ * Escolhe o resultado mais parecido com o pedido. O artista pesa 10x o titulo:
+ * so pelo titulo, "Creep" do Stone Temple Pilots empata com o do Radiohead, e um
+ * cover do Boyce Avenue ganha do Green Day.
  */
 function escolherMelhorResultado(resultados, artistaPedido, tituloPedido) {
   const artistaAlvo = normalizar(artistaPedido);
@@ -97,16 +75,14 @@ function escolherMelhorResultado(resultados, artistaPedido, tituloPedido) {
     else if (artista.includes(artistaAlvo) || artistaAlvo.includes(artista)) pontosArtista = 1;
 
     let pontosTitulo = 0;
-    if (titulo === tituloAlvo) pontosTitulo = 3; // titulo igualzinho
-    else if (titulo.startsWith(tituloAlvo)) pontosTitulo = 2; // original + algo entre parenteses
+    if (titulo === tituloAlvo) pontosTitulo = 3;
+    else if (titulo.startsWith(tituloAlvo)) pontosTitulo = 2;
     else if (titulo.includes(tituloAlvo)) pontosTitulo = 1;
 
-    // Se o titulo nao casa de jeito nenhum, o resultado esta fora da disputa.
-    // (Sem isto, "Rehab" da Amy Winehouse ganhava de "Back To Black (Original Demo)"
-    //  no desempate por nome mais curto, mesmo nao tendo nada a ver com o pedido.)
+    // Titulo que nao casa fica fora da disputa: sem isto, "Rehab" da Amy Winehouse
+    // ganhava de "Back To Black (Original Demo)" no desempate por nome mais curto.
     if (pontosTitulo === 0) return -100;
 
-    // Desconto para versoes alternativas, a nao ser que o grupo tenha pedido justamente isso.
     const ehAlternativa = VERSOES_ALTERNATIVAS.some(
       (marca) => titulo.includes(marca) && !tituloAlvo.includes(marca)
     );
@@ -114,7 +90,6 @@ function escolherMelhorResultado(resultados, artistaPedido, tituloPedido) {
     return pontosArtista * 10 + pontosTitulo * 2 - (ehAlternativa ? 1 : 0);
   };
 
-  // Maior pontuacao vence; empatou, fica o titulo mais curto (menos "extras" no nome).
   return [...resultados].sort((a, b) => {
     const diferenca = pontuar(b) - pontuar(a);
     return diferenca !== 0 ? diferenca : a.trackName.length - b.trackName.length;
@@ -125,12 +100,11 @@ async function buscarNoItunes(artista, titulo) {
   const url = montarUrl('https://itunes.apple.com/search', {
     term: `${artista} ${titulo}`,
     entity: 'song',
-    country: 'BR', // sem isto a busca cai na loja americana e devolve outras musicas
-    limit: 25, // pedimos varias e escolhemos a melhor logo abaixo
+    country: 'BR', // sem isto a busca cai na loja americana
+    limit: 25,
   });
 
   const resposta = await buscarComRetentativa(url);
-  // fetch NAO cai no catch quando o status e 404 ou 500: temos que conferir na mao.
   if (!resposta.ok) throw new Error(`iTunes respondeu ${resposta.status}`);
 
   const dados = await resposta.json();
@@ -138,24 +112,20 @@ async function buscarNoItunes(artista, titulo) {
 
   const r = escolherMelhorResultado(dados.results, artista, titulo);
   return {
-    trackId: r.trackId, // id da musica no iTunes: e o nosso campo referenciado
+    trackId: r.trackId,
     titulo: r.trackName,
     artista: r.artistName,
     album: r.collectionName,
-    duracao: Math.round(r.trackTimeMillis / 1000), // milissegundos -> segundos
+    duracao: Math.round(r.trackTimeMillis / 1000),
     genero: r.primaryGenreName,
-    // A capa vem em 100x100; trocar o pedaco do nome por 300x300 traz a imagem maior.
     capa: r.artworkUrl100 ? r.artworkUrl100.replace('100x100bb', '300x300bb') : '',
     previa: r.previewUrl || '',
   };
 }
 
-// ---------------------------------------------------------------------------
-// Passo 2 - LRCLIB (letra, so para recortar o trecho)
-// ---------------------------------------------------------------------------
+// --- LRCLIB: letra, so para recortar o trecho -------------------------------
 
 async function buscarLetra({ titulo, artista, album, duracao }) {
-  // Tentativa principal: /api/get casa pelo conjunto titulo + artista + album + duracao.
   const urlGet = montarUrl('https://lrclib.net/api/get', {
     track_name: titulo,
     artist_name: artista,
@@ -165,8 +135,8 @@ async function buscarLetra({ titulo, artista, album, duracao }) {
 
   let resposta = await buscarComRetentativa(urlGet);
 
-  // Plano B: quando o /api/get devolve 404 (duracao ou album diferentes do que a LRCLIB tem),
-  // caimos na busca mais solta, que ignora album e duracao, e pegamos o primeiro resultado.
+  // 404 aqui significa album ou duracao diferentes dos que a LRCLIB tem:
+  // caimos na busca solta, que ignora os dois.
   if (resposta.status === 404) {
     const urlBusca = montarUrl('https://lrclib.net/api/search', {
       track_name: titulo,
@@ -183,21 +153,16 @@ async function buscarLetra({ titulo, artista, album, duracao }) {
   return resposta.json();
 }
 
-/**
- * Mede a variedade de palavras de uma linha: 1 = todas diferentes, 0.5 = metade repetida.
- * Serve para jogar fora linhas de enrolacao tipo "Ba-de-ya, de-ya, de-ya" ou "Aw! Aw! Aw!",
- * que sao justamente as que mais se repetem na letra e estragariam o destaque no site.
- */
 function variedadeDePalavras(linha) {
   const palavras = linha.toLowerCase().match(/[\p{L}\p{N}']+/gu) || [];
   if (palavras.length === 0) return 0;
   return new Set(palavras).size / palavras.length;
 }
 
-/**
- * Escolhe UM trecho da letra para destacar no site.
- * Ideia: a linha que mais se repete costuma ser o refrao, que e a parte marcante.
- * Em caso de empate (ou letra sem repeticao), fica a linha mais longa.
+/*
+ * A linha que mais se repete costuma ser o refrao. Antes disso descartamos linhas
+ * de palavras repetidas ("Ba-de-ya, de-ya, de-ya"), senao o destaque do site
+ * cairia em onomatopeia - que e justamente o que mais se repete na letra.
  */
 function escolherTrecho(letra) {
   if (!letra) return '';
@@ -206,7 +171,7 @@ function escolherTrecho(letra) {
     .split('\n')
     .map((linha) => linha.trim())
     .filter((linha) => linha.length >= 20 && linha.length <= 90)
-    .filter((linha) => !linha.startsWith('[')) // descarta marcacoes tipo [Chorus]
+    .filter((linha) => !linha.startsWith('['))
     .filter((linha) => variedadeDePalavras(linha) >= 0.7);
 
   if (linhas.length === 0) return '';
@@ -223,17 +188,13 @@ function escolherTrecho(letra) {
   return melhor;
 }
 
-// ---------------------------------------------------------------------------
-// Passo 3 - banco (RESTHeart)
-// ---------------------------------------------------------------------------
+// --- banco ------------------------------------------------------------------
 
-/** Garante que a colecao existe. 201 = criada agora, 200 = ja existia. */
 async function criarColecao() {
   const resposta = await fetch(BANCO, { method: 'PUT', headers: CABECALHOS });
   if (!resposta.ok) throw new Error(`nao consegui criar a colecao (status ${resposta.status})`);
 }
 
-/** Evita duplicar: pergunta ao banco se ja existe musica com o mesmo titulo e artista. */
 async function jaExisteNoBanco(titulo, artista) {
   const filtro = encodeURIComponent(JSON.stringify({ titulo, artista }));
   const resposta = await fetch(`${BANCO}?filter=${filtro}&pagesize=1`, { headers: CABECALHOS });
@@ -243,7 +204,6 @@ async function jaExisteNoBanco(titulo, artista) {
   return Array.isArray(lista) && lista.length > 0;
 }
 
-/** Insere o documento. O RESTHeart devolve 201 e o id no cabecalho Location. */
 async function gravarNoBanco(documento) {
   const resposta = await fetch(BANCO, {
     method: 'POST',
@@ -255,14 +215,16 @@ async function gravarNoBanco(documento) {
   return (resposta.headers.get('Location') || '').split('/').pop();
 }
 
-// ---------------------------------------------------------------------------
-// Monta o documento no formato combinado pelo grupo
-// ---------------------------------------------------------------------------
+async function quantasMusicasNoBanco() {
+  const resposta = await fetch(`${BANCO}?pagesize=1000`, { headers: CABECALHOS });
+  if (!resposta.ok) return 0;
+  const lista = await resposta.json();
+  return Array.isArray(lista) ? lista.length : 0;
+}
 
 function montarDocumento({ item, doItunes, trecho }) {
   const agora = new Date().toISOString();
 
-  // tags = genero que veio do iTunes + tags escritas na lista (sem repetir).
   const tags = [];
   if (doItunes.genero) tags.push(doItunes.genero.toLowerCase());
   for (const tag of item.tags || []) {
@@ -270,9 +232,7 @@ function montarDocumento({ item, doItunes, trecho }) {
   }
 
   return {
-    // Guardamos o id do iTunes em vez de copiar a musica inteira para ca: e a nossa
-    // referencia para o registro externo, e permite voltar na API quando precisar.
-    trackId: doItunes.trackId,
+    trackId: doItunes.trackId, // referencia para o registro no iTunes
     titulo: doItunes.titulo,
     artista: doItunes.artista,
     album: doItunes.album,
@@ -288,14 +248,8 @@ function montarDocumento({ item, doItunes, trecho }) {
   };
 }
 
-// ---------------------------------------------------------------------------
-// A importacao em si
-// ---------------------------------------------------------------------------
+// --- a importacao -----------------------------------------------------------
 
-/**
- * Importa todas as musicas da lista.
- * Recebe uma funcao avisar(texto) para ir mostrando o andamento na tela.
- */
 async function importarTudo(avisar = console.log) {
   const resposta = await fetch(ARQUIVO_DA_LISTA);
   if (!resposta.ok) throw new Error(`nao achei ${ARQUIVO_DA_LISTA} (status ${resposta.status})`);
@@ -309,13 +263,11 @@ async function importarTudo(avisar = console.log) {
   for (const [indice, item] of lista.entries()) {
     const posicao = `[${indice + 1}/${lista.length}]`;
 
-    // O try/catch por musica e o que faz a importacao nao parar quando uma falha:
-    // registramos o erro, contamos e seguimos para a proxima.
+    // O try/catch por musica e o que impede uma falha de parar a importacao inteira.
     try {
-      // O iTunes vem primeiro de proposito: o documento e gravado com o titulo e o artista
-      // que ELE devolve ("Pais Tropical" da nossa lista vira "Pais Tropical" com acento).
-      // Se checassemos a duplicata usando os nomes da lista, nao achariamos o que ja esta
-      // no banco e a importacao duplicaria tudo a cada execucao.
+      // O iTunes vem antes da checagem de duplicata de proposito: gravamos com o nome
+      // que ELE devolve ("Pais Tropical" vira "Pais Tropical" com acento), entao comparar
+      // pelo nome da nossa lista nao acharia o que ja esta no banco e duplicaria tudo.
       const doItunes = await buscarNoItunes(item.artista, item.titulo);
 
       if (await jaExisteNoBanco(doItunes.titulo, doItunes.artista)) {
@@ -324,8 +276,7 @@ async function importarTudo(avisar = console.log) {
         continue;
       }
 
-      // Se a lista do grupo ja traz um trecho escolhido a mao, ele tem prioridade.
-      let trecho = item.trecho || '';
+      let trecho = item.trecho || ''; // trecho escolhido a mao tem prioridade
       if (!trecho) {
         const letra = await buscarLetra(doItunes);
         trecho = escolherTrecho(letra && letra.plainLyrics);
@@ -352,14 +303,20 @@ async function importarTudo(avisar = console.log) {
   return contador;
 }
 
-// ---------------------------------------------------------------------------
-// Liga o botao da pagina
-// ---------------------------------------------------------------------------
+// --- botao da pagina --------------------------------------------------------
 
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', async function () {
+  const secao = document.querySelector('.setup');
   const botao = document.getElementById('botao-importar');
   const andamento = document.getElementById('andamento');
-  if (!botao) return;
+  if (!secao || !botao) return;
+
+  // O bloco so interessa enquanto o banco estiver vazio: com musicas gravadas
+  // ele sai da tela sozinho, e volta se alguem apagar a colecao.
+  if ((await quantasMusicasNoBanco()) > 0) {
+    secao.hidden = true;
+    return;
+  }
 
   botao.addEventListener('click', async function () {
     botao.disabled = true;

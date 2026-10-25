@@ -1,43 +1,78 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MoodTune</title>
-    <link rel="stylesheet" href="style.css" />
-  </head>
-  <body>
-    <header>
-      <h1>MoodTune</h1>
-      <p>Escolha como voce esta se sentindo e receba uma musica.</p>
-    </header>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Moodtune: estrutura inicial da interface de músicas para seu momento.">
+  <title>Moodtune —</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="theme.js"></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="#inicio" aria-label="Moodtune, início"><b aria-hidden="true">≋</b> Moodtune<span>.</span></a>
+    <small class="nav-label">SEU ESPAÇO</small>
+    <nav aria-label="Navegação principal">
+      <a class="active" href="#inicio" aria-current="page">⌂ &nbsp; Descobrir</a>
+      <span class="nav-pending" aria-disabled="true">▥ &nbsp; Meu painel <small>Em breve</small></span>
+      <span class="nav-pending" aria-disabled="true">＋ &nbsp; Registrar momento <small>Em breve</small></span>
+    </nav>
+    <div class="sidebar-note"><span aria-hidden="true">♫</span><p>Cada momento tem<br>uma trilha sonora.</p><small>Encontre a sua por aqui.</small></div>
+    <div class="author"><b aria-hidden="true">G</b><div>Projeto acadêmico<small>Interface por João Marcos Gula</small></div></div>
+  </aside>
+  <main id="inicio">
+    <header><span>MÚSICA & SENTIMENTO</span><div class="header-actions"><span class="badge">● &nbsp; Etapa 1 · Interface inicial</span><button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false" hidden><span aria-hidden="true">◐</span> Tema escuro</button></div></header>
+    <section aria-labelledby="intro-title">
+      <p class="eyebrow">DÊ PLAY NO SEU MOMENTO</p>
+      <h1 id="intro-title">Como você está <em>hoje?</em></h1>
+      <p class="subtitle">Um sentimento, uma descoberta. Encontre músicas que combinam com você.</p>
+      <!-- Etapa futura: tornar os humores selecionáveis e conectá-los à recomendação. -->
+      <ul class="moods" aria-label="Humores previstos para o aplicativo">
+        <li class="mood"><span aria-hidden="true">😊</span><b>Feliz</b></li>
+        <li class="mood"><span aria-hidden="true">😔</span><b>Triste</b></li>
+        <li class="mood"><span aria-hidden="true">😌</span><b>Calmo</b></li>
+        <li class="mood"><span aria-hidden="true">🤩</span><b>Animado</b></li>
+        <li class="mood"><span aria-hidden="true">😰</span><b>Ansioso</b></li>
+        <li class="mood"><span aria-hidden="true">🧐</span><b>Focado</b></li>
+      </ul>
+      <div class="hero">
+        <div class="hero-content"><span class="pill">NA SUA FREQUÊNCIA</span><h2>Seu momento.<br>Sua trilha sonora.</h2><p>Uma nova forma de encontrar músicas que acompanham o que você sente.</p><span class="coming-soon">Sua próxima descoberta começa aqui ↗</span></div>
+        <div class="record-art" aria-hidden="true"><div class="orbit"></div><div class="vinyl"><div class="label">Moodtune<small>FEEL THE MUSIC</small></div></div><span>♪</span></div>
+      </div>
+    </section>
+    <section aria-labelledby="songs-title">
+      <div class="section-heading"><div><p class="eyebrow">DESCUBRA NOVOS SONS</p><h2 id="songs-title">Para entrar no clima</h2></div><span class="muted">Seu próximo som está chegando</span></div>
+      <!-- Campos desabilitados nesta etapa: apenas estrutura e visual. -->
+      <div class="filters">
+        <label class="search"><span aria-hidden="true">⌕</span><input type="search" placeholder="Buscar música ou artista" aria-label="Buscar música ou artista (em breve)" disabled></label>
+        <label class="genre-label">Gênero<select disabled><option>Todos os gêneros</option></select></label>
+        <button class="secondary" disabled>Limpar filtros</button>
+      </div>
+      <p class="stage-note">Visual inicial: a busca, os filtros e o carregamento de músicas serão implementados nas próximas etapas.</p>
+      <div class="song-grid">
+        <article class="song"><div class="cover" style="--cover-bg:linear-gradient(135deg,#d9aa65,#ba6c40)" aria-hidden="true"><span class="cover-number">MOODTUNE / 01</span><span class="cover-word">solar</span></div><h3>Sua próxima descoberta</h3><p class="artist">Espaço reservado para uma música</p><span class="tag">Em breve</span></article>
+        <article class="song"><div class="cover" style="--cover-bg:linear-gradient(135deg,#83a594,#376a5e)" aria-hidden="true"><span class="cover-number">MOODTUNE / 02</span><span class="cover-word">afeto</span></div><h3>Um som para acompanhar</h3><p class="artist">Espaço reservado para uma música</p><span class="tag">Em breve</span></article>
+        <article class="song"><div class="cover" style="--cover-bg:linear-gradient(135deg,#bea98b,#7c8e71)" aria-hidden="true"><span class="cover-number">MOODTUNE / 03</span><span class="cover-word">leve</span></div><h3>Uma pausa no seu dia</h3><p class="artist">Espaço reservado para uma música</p><span class="tag">Em breve</span></article>
+        <article class="song"><div class="cover" style="--cover-bg:linear-gradient(135deg,#8b93ba,#484976)" aria-hidden="true"><span class="cover-number">MOODTUNE / 04</span><span class="cover-word">cosmos</span></div><h3>Na sua frequência</h3><p class="artist">Espaço reservado para uma música</p><span class="tag">Em breve</span></article>
+      </div>
+    </section>
+    <!-- Some sozinho quando o banco ja tem musicas (ver importar.js). -->
+    <section class="setup" aria-labelledby="setup-title">
+      <p class="eyebrow">PRIMEIRA VEZ RODANDO O PROJETO</p>
+      <h2 id="setup-title">Carregar as músicas</h2>
+      <p>
+        O banco sobe vazio. Este botão busca as músicas no iTunes e as letras na LRCLIB e grava
+        tudo no MongoDB &mdash; leva cerca de um minuto e só precisa ser feito uma vez. Se parar no
+        meio, é só clicar de novo: o que já entrou é pulado, nada duplica.
+      </p>
+      <button id="botao-importar" class="primary" type="button">Importar músicas</button>
+      <pre id="andamento" aria-live="polite"></pre>
+    </section>
+    <footer><span><b>Moodtune.</b> &nbsp; Feito para sentir.</span><span>Trabalho acadêmico · Interface: João Marcos Gula</span></footer>
+  </main>
 
-    <main>
-      <section id="importacao">
-        <h2>Carregar as musicas</h2>
-        <p>
-          Primeira vez rodando o projeto? O banco sobe vazio. Este botao busca as musicas no
-          iTunes e as letras na LRCLIB e grava tudo no MongoDB. Leva cerca de um minuto, e so
-          precisa ser feito uma vez &mdash; depois o site le sempre do banco.
-        </p>
-        <button id="botao-importar" type="button">Importar musicas</button>
-        <pre id="andamento" aria-live="polite"></pre>
-      </section>
-
-      <!--
-        Daqui para baixo e a parte da Interface (Gula):
-          - listagem das musicas, com busca por texto e filtro por humor
-          - formulario de criar/editar, com validacao
-          - mensagens de carregando / sucesso / erro, mostrando o status HTTP
-          - painel com indicadores, graficos (Chart.js), ranking e agrupamento por humor
-
-        As funcoes que conversam com o banco ja estao prontas em app.js
-        (listarMusicas, listarPorHumor, buscarMusica, criarMusica, substituirMusica,
-        favoritarMusica, excluirMusica).
-      -->
-    </main>
-
-    <script src="app.js"></script>
-    <script src="importar.js"></script>
-  </body>
+  <!-- app.js antes de importar.js: a importacao usa BANCO e CABECALHOS. -->
+  <script src="app.js"></script>
+  <script src="importar.js"></script>
+</body>
 </html>
