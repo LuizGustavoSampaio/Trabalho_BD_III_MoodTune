@@ -306,3 +306,16 @@ frontend, não uma pasta nova.
 O MoodTune usa iTunes Search API + LRCLIB, que **não estão no catálogo de 10 temas** do enunciado.
 O próprio enunciado permite ("um grupo pode propor outra API pública, desde que o professor aprove
 antes") — só é preciso confirmar que essa aprovação foi registrada.
+## Protótipo inicial da interface (Gula)
+
+A primeira versão visual está em `index.html`, `style.css` e `theme.js`, na raiz.
+Ela contém a estrutura da tela Descobrir, espaços de humor, busca, filtros e músicas,
+layout responsivo e alternância entre temas claro e escuro, com preferência local.
+Esta versão é um protótipo visual separado: ainda não utiliza as funções do banco.
+
+A base integrada do projeto continua em `frontend/`, com as requisições HTTP em
+`frontend/app.js` e a importação em `frontend/importar.js`. A próxima etapa da interface
+será integrar o visual a essa estrutura, preservando a importação e as funções existentes.
+Para conferir o protótipo visual, abra o `index.html` da raiz no navegador.
+
+A estrutura e o tema do protótipo foram desenvolvidos com apoio do Codex.

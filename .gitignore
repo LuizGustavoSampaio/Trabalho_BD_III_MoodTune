@@ -1,9 +1,15 @@
-# Variaveis de ambiente e segredos (nada de senha no repositorio)
-.env
-
-# Espelho local da extensao do Postman no VS Code.
-# O entregavel e postman/colecao.json; esta pasta e so a copia de trabalho.
-postman/collections/
+﻿# Arquivos do sistema
+.DS_Store
+Thumbs.db
 
 # Configuracao local do editor
 .vscode/
+
+# Dependencias instaladas localmente
+node_modules/
+
+# Variaveis de ambiente e segredos
+.env
+
+# Copia de trabalho local do Postman; o entregavel e postman/colecao.json
+postman/collections/
