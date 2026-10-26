@@ -212,13 +212,6 @@ npx newman run postman/colecao.json
 
 Última execução: **12 requisições, 22 asserções, 0 falhas.**
 
-## Uso de IA
-
-Conforme permitido pelo enunciado: a interface (`index.html`, `style.css`, `theme.js`) foi feita
-com apoio do Codex; a importação, as requisições HTTP, a coleção do Postman e este README, com
-apoio do Claude. O grupo decidiu a lista de músicas, os humores e a modelagem dos campos, e
-revisou e testou todo o código.
-
 ## Estrutura do repositório
 
 ```
