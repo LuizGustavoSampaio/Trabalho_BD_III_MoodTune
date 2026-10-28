@@ -13,3 +13,12 @@ node_modules/
 
 # Copia de trabalho local do Postman; o entregavel e postman/colecao.json
 postman/collections/
+
+# Pastas que a extensao do Postman recria sozinha
+.postman/
+postman/documents/
+postman/environments/
+postman/flows/
+postman/globals/
+postman/mocks/
+postman/specs/
