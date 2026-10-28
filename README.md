@@ -212,6 +212,100 @@ npx newman run postman/colecao.json
 
 Última execução: **12 requisições, 22 asserções, 0 falhas.**
 
+## Evidências de teste
+
+Prints das requisições rodando de verdade, com o **status HTTP à mostra**. Os arquivos estão em
+`docs/prints/`, e a ordem abaixo é a mesma do fluxo do projeto.
+
+### As duas APIs externas
+
+Nas duas o *Auth type* está em **No Auth**: são serviços de terceiros, não faz sentido mandar a
+senha do nosso banco para eles.
+
+**iTunes Search API** — `GET https://itunes.apple.com/search?term=Coldplay Yellow&entity=song&country=BR&limit=1`
+
+![Busca no iTunes devolvendo 200](docs/prints/api-itunes.png)
+
+Status **200**. É daqui que saem `titulo`, `artista`, `album`, `capa` (`artworkUrl100`) e `previa`
+(`previewUrl`). A duração vem em milissegundos — `trackTimeMillis: 269208` vira os 269 segundos que
+gravamos. O `country=BR` não é enfeite: sem ele a busca cai no catálogo americano e parte do
+repertório brasileiro não aparece.
+
+**LRCLIB** — `GET https://lrclib.net/api/get?track_name=Yellow&artist_name=Coldplay`
+
+![Busca da letra na LRCLIB devolvendo 200](docs/prints/api-lrclib.png)
+
+Status **200**. As duas APIs não têm nenhum id em comum, então a ligação é feita por **artista +
+título** — é o que esta requisição usa. Repare no `albumName`: a LRCLIB devolveu "Yellow - Single",
+enquanto o iTunes tinha dito "Parachutes". São gravações diferentes da mesma música, e é por isso
+que o `importar.js` e a coleção do Postman mandam também `&album_name=` e `&duration=`: a duração
+que o iTunes devolveu confirma qual versão é a certa. Sem esse acerto, a letra poderia vir de uma
+gravação com outro tempo e outro arranjo.
+
+Do `plainLyrics` sai apenas o `trecho` que o site destaca; a letra inteira continua na LRCLIB.
+
+### O CRUD no banco
+
+**Criar a coleção** — `PUT /musicas`
+
+![PUT na coleção devolvendo 200](docs/prints/criar-colecao-200.png)
+
+Status **200** porque a coleção já existia; na primeira execução o RESTHeart devolve **201**.
+
+**Inserir** — `POST /musicas`
+
+![POST devolvendo 201 Created](docs/prints/post-201.png)
+
+Status **201 Created**. O corpo da resposta vem vazio de propósito: o id do documento novo volta no
+cabeçalho `Location`, na aba *Headers*. É de lá que sai o `6ae13f1cb433a4bd6e0d6ade` usado em todas
+as requisições seguintes.
+
+**Listar** — `GET /musicas?pagesize=100`
+
+![GET da listagem devolvendo 200](docs/prints/get-lista-200.png)
+
+Status **200**. Repare no `_id` no formato `{ "$oid": "..." }` — é assim que o RESTHeart devolve o
+ObjectId do Mongo, e é por isso que o site lê `musica._id.$oid`, não `musica._id`.
+
+**Filtrar por humor** — `GET /musicas?filter={"humor":"apaixonado"}`
+
+![GET filtrado por humor devolvendo 200](docs/prints/get-filtro-200.png)
+
+Status **200**, e só as músicas daquele humor. É exatamente esta requisição que o site dispara
+quando a pessoa escolhe como está se sentindo.
+
+**Substituir** — `PUT /musicas/{id}`
+
+![PUT no documento devolvendo 200](docs/prints/put-200.png)
+
+Status **200**. O corpo traz o documento **inteiro**, porque o PUT substitui o que estava lá: campo
+que não for enviado some. Neste print o `trecho` mudou para "Your skin, oh yeah your skin and bones"
+e o `atualizadoEm` acompanhou a alteração.
+
+**Excluir** — `DELETE /musicas/{id}`
+
+![DELETE devolvendo 204 No Content](docs/prints/delete-204.png)
+
+Status **204 No Content**. Corpo vazio aqui é o resultado certo, não falta de resposta.
+
+### Os erros que o banco devolve
+
+**Documento que não existe** — `GET /musicas/{id}` logo depois do DELETE
+
+![GET em id excluído devolvendo 404](docs/prints/get-404.png)
+
+Status **404**, com `"message": "document 6ae13f1cb433a4bd6e0d6ade does not exist"`. É o mesmo id do
+print anterior: os dois juntos provam que a exclusão aconteceu de verdade, e não só que o servidor
+respondeu sem reclamar.
+
+**Sem autenticação** — mesma URL, com o *Auth type* em *No Auth*
+
+![Requisição sem autenticação devolvendo 401](docs/prints/sem-auth-401.png)
+
+Status **401 Unauthorized**. Vale lembrar que o `fetch` do navegador **não** cai no `catch` em 401,
+404 ou 500 — ele só falha se a conexão cair. Por isso o `app.js` confere o `res.ok` de toda
+resposta antes de usar os dados.
+
 ## Estrutura do repositório
 
 ```
@@ -224,6 +318,7 @@ Trabalho_BD_III_MoodTune/
 │   ├── app.js               as requisições HTTP ao banco (API)
 │   ├── importar.js          GET nas APIs externas + POST no banco (API)
 │   └── musicas.json         lista do grupo (artista, título, humor)
+├── docs/prints/             prints dos testes (evidências)
 ├── postman/colecao.json     coleção exportada, com os testes
 └── README.md
 ```
