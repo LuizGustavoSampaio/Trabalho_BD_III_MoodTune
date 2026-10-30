@@ -221,10 +221,14 @@ async function gravarNoBanco(documento) {
 }
 
 async function quantasMusicasNoBanco() {
-  const resposta = await fetch(`${BANCO}?pagesize=1000`, { headers: CABECALHOS });
-  if (!resposta.ok) return 0;
-  const lista = await resposta.json();
-  return Array.isArray(lista) ? lista.length : 0;
+  try {
+    const resposta = await fetch(`${BANCO}?pagesize=1000`, { headers: CABECALHOS });
+    if (!resposta.ok) return 0;
+    const lista = await resposta.json();
+    return Array.isArray(lista) ? lista.length : 0;
+  } catch {
+    return 0;
+  }
 }
 
 function montarDocumento({ item, doItunes, trecho }) {
