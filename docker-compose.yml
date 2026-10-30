@@ -3,9 +3,9 @@ services:
     image: mongo:7
     restart: unless-stopped
     ports:
-      - "27017:27017" 
+      - "27017:27017"
     volumes:
-      - dados-mongo:/data/db 
+      - dados-mongo:/data/db
 
   restheart:
     image: softinstigate/restheart:8
@@ -15,6 +15,16 @@ services:
       RHO: '/mclient/connection-string->"mongodb://mongodb:27017";/http-listener/host->"0.0.0.0"'
     ports:
       - "8080:8080"
+
+  frontend:
+    image: nginx:alpine
+    restart: unless-stopped
+    depends_on:
+      - restheart
+    ports:
+      - "3000:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
 
 volumes:
   dados-mongo:
