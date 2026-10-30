@@ -339,6 +339,7 @@ document.addEventListener('DOMContentLoaded', async function () {
       avisar('O docker compose esta rodando? Teste: http://localhost:8080/musicas');
     } finally {
       botao.disabled = false;
+      await carregarMusicas();
     }
   });
 });
