@@ -81,7 +81,7 @@ function escolherMelhorResultado(resultados, artistaPedido, tituloPedido) {
 
     // Titulo que nao casa fica fora da disputa: sem isto, "Rehab" da Amy Winehouse
     // ganhava de "Back To Black (Original Demo)" no desempate por nome mais curto.
-    if (pontosTitulo === 0) return -100;
+    if (pontosTitulo === 0) return -1;
 
     const ehAlternativa = VERSOES_ALTERNATIVAS.some(
       (marca) => titulo.includes(marca) && !tituloAlvo.includes(marca)
@@ -90,7 +90,10 @@ function escolherMelhorResultado(resultados, artistaPedido, tituloPedido) {
     return pontosArtista * 10 + pontosTitulo * 2 - (ehAlternativa ? 1 : 0);
   };
 
-  return [...resultados].sort((a, b) => {
+  const candidatos = resultados.filter((r) => r.trackName && r.trackTimeMillis && pontuar(r) > 0);
+  if (candidatos.length === 0) return null;
+
+  return candidatos.sort((a, b) => {
     const diferenca = pontuar(b) - pontuar(a);
     return diferenca !== 0 ? diferenca : a.trackName.length - b.trackName.length;
   })[0];
@@ -111,6 +114,8 @@ async function buscarNoItunes(artista, titulo) {
   if (!dados.results || dados.results.length === 0) throw new Error('musica nao encontrada no iTunes');
 
   const r = escolherMelhorResultado(dados.results, artista, titulo);
+  if (!r) throw new Error('nenhum resultado do iTunes tem esse titulo');
+
   return {
     trackId: r.trackId,
     titulo: r.trackName,
