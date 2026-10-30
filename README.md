@@ -17,24 +17,17 @@ O MoodTune é um site onde a pessoa escolhe **como está se sentindo** e recebe 
 
 Pré-requisito: Docker.
 
-**1.** Suba o banco:
+**1.** Suba tudo (banco, API e site):
 
 ```bash
 docker compose up -d
 ```
 
-**2.** Abra o site. Enquanto o container do frontend não estiver no `docker-compose.yml` (é o
-ponto extra, ainda pendente), sirva a pasta por HTTP:
+**2.** Abra o site em **http://localhost:3000**. Ele é servido por um container nginx do próprio
+compose, então não precisa instalar mais nada. Não adianta abrir o `frontend/index.html` direto
+pelo explorador (`file://`): nesse modo o navegador bloqueia a leitura do `musicas.json`.
 
-```bash
-npx serve frontend -l 3000      # abre em http://localhost:3000
-```
-
-ou clique com o botão direito em `frontend/index.html` no VS Code e escolha **Open with Live
-Server**. Não adianta abrir o arquivo direto pelo explorador (`file://`): nesse modo o navegador
-bloqueia a leitura do `musicas.json`.
-
-**3.** Clique em **Importar músicas**. O banco sobe vazio, e esse botão busca as músicas no iTunes
+**3.** Se o banco estiver vazio, clique em **Importar músicas**, no fim da página. O banco sobe vazio, e esse botão busca as músicas no iTunes
 e as letras na LRCLIB e grava tudo no MongoDB — leva cerca de um minuto e só precisa ser feito uma
 vez. Depois disso o site lê sempre do banco.
 
@@ -44,7 +37,7 @@ de novo: o que já entrou é pulado, nada duplica.
 Para conferir se subiu:
 
 ```
-docker compose ps                                         # os 2 serviços devem estar "running"
+docker compose ps                                         # os 3 serviços devem estar "running"
 curl -u admin:secret "http://localhost:8080/musicas?pagesize=100"
 
 ```
@@ -68,9 +61,9 @@ Só o `-v` apaga de verdade — e aí é preciso rodar a importação de novo.
 APIs externas (só GET, só na importação)         Banco                 Site
 ┌──────────────────────┐
 │ iTunes Search API    │  metadados, capa, prévia
-│ LRCLIB               │  letra (só o trecho)      ──►  MongoDB   ──►  frontend
-└──────────────────────┘     frontend/importar.js      + RESTHeart     (lê e grava
-                                                        :8080           só no banco)
+│ LRCLIB               │  letra (só o trecho)      ──►  MongoDB   ──►  frontend (nginx)
+└──────────────────────┘     frontend/importar.js      + RESTHeart     :3000, lê e grava
+                                                        :8080           só no banco
 ```
 
 As duas APIs externas não têm id em comum. A ligação entre elas é feita por **artista + título**,
@@ -78,6 +71,19 @@ usando a **duração em segundos** como confirmação: primeiro perguntamos ao i
 nomes que ele devolve para pedir a letra à LRCLIB.
 
 O site **não chama as APIs externas** a cada clique: ele lê e grava apenas no banco.
+
+### Containers
+
+| Serviço | Imagem | Porta | Para quê |
+|---|---|---|---|
+| `mongodb` | `mongo:7` | 27017 | guarda os documentos, no volume `dados-mongo` |
+| `restheart` | `softinstigate/restheart:8` | 8080 | a API HTTP em cima do MongoDB |
+| `frontend` | `nginx:alpine` | 3000 | serve a pasta `frontend/` |
+
+O `frontend` monta a pasta `./frontend` dentro do nginx (somente leitura). Por isso qualquer
+alteração no HTML, CSS ou JS aparece só recarregando a página, sem recriar o container. Quem chama
+o RESTHeart é o navegador, e não o nginx, por isso o `app.js` continua usando
+`http://localhost:8080`.
 
 ### Banco
 
@@ -94,7 +100,7 @@ para os dados não sumirem quando o container é recriado. Nada em nuvem.
 
 * **Persistência de Dados:** Volume Docker nomeado `dados-mongo` mapeado para `/data/db`, garantindo a retenção dos documentos NoSQL mesmo com reinicializações do ambiente (`docker compose down`).
 
-* **Conexão Direta para Inspeção (GUI/Compass):** `mongodb://admin:secret@localhost:27017/musicas?authSource=admin`
+* **Conexão Direta para Inspeção (GUI/Compass):** `mongodb://localhost:27017` — o MongoDB do compose não tem usuário próprio (quem pede senha é o RESTHeart). Os documentos ficam no banco `restheart`, coleção `musicas`.
 
 * **Estratégia NoSQL:** Estrutura *schema-less* otimizada para consultas diretas em documento único (Single-Document Reads) via HTTP, eliminando a necessidade de operações custosas de `JOIN`.
 
@@ -178,6 +184,8 @@ Decisões que vale explicar:
 * **Escolha do resultado no iTunes.** A busca devolve várias versões; a escolha pesa **artista
   (x10) e título**, e desconta versões ao vivo / demo / cover. Sem o peso do artista, "Creep" do
   Stone Temple Pilots empatava com o do Radiohead, e um cover do Boyce Avenue ganhava do Green Day.
+  Resultado cujo título não bate com o pedido é descartado: se nenhum bater, a música entra como
+  falha no resumo em vez de gravar outra música no lugar.
 
 * **Escolha do trecho.** A linha que mais se repete na letra costuma ser o refrão. Linhas com
   palavras muito repetidas (`Ba-de-ya, de-ya, de-ya`) são descartadas antes, senão o destaque do
@@ -190,6 +198,38 @@ Três músicas ficaram gravadas em versão alternativa — `Good Riddance [Live]
 (Original Demo)` e `Garota de Ipanema (Live In San Francisco, 2003)`. Não é falha do script: a
 versão de estúdio delas **não existe no catálogo do iTunes Brasil** (conferimos buscando 50
 resultados). O que está no banco é o melhor que a API oferece, e é dado real dela.
+
+## Como o site funciona
+
+Tudo o que a tela faz passa pelas funções de `frontend/app.js`, que são as únicas que falam com o
+banco. Cada uma devolve o **status HTTP** da resposta, e a tela mostra esse número na mensagem de
+sucesso ou de erro (ex.: `"Yellow" foi atualizada (PUT 200).`).
+
+| Na tela | Função em `app.js` | Requisição |
+|---|---|---|
+| Abrir a página / recarregar a lista | `listarMusicas` | `GET /musicas?pagesize=100` |
+| Clicar em um humor ou em **Sortear outra** | `listarPorHumor` | `GET /musicas?filter={"humor":"..."}` |
+| **＋ Nova música** e salvar | `criarMusica` | `POST /musicas` |
+| **Editar** e salvar | `substituirMusica` | `PUT /musicas/{id}` |
+| **♡ Favoritar** | `favoritarMusica` | `PATCH /musicas/{id}` |
+| **Excluir** (pede confirmação antes) | `excluirMusica` | `DELETE /musicas/{id}` |
+
+* **Escolha da música.** Ao clicar em um humor, o site faz o `GET` filtrado, sorteia uma das
+  músicas com `Math.random()` (evitando repetir a que já está na tela) e mostra capa, título,
+  artista, o **trecho destacado** e a prévia de 30 s tocando.
+* **Busca e filtros.** A caixa de busca procura no título e no artista, sem diferenciar maiúsculas
+  e acentos; o filtro de gênero usa as `tags`; o humor escolhido também filtra a lista. **Limpar
+  filtros** volta tudo ao início.
+* **Formulário.** Valida antes de enviar: título, artista, humor e trecho obrigatórios; duração
+  inteira e maior que zero; capa e prévia, se preenchidas, precisam começar com `http://` ou
+  `https://`. Na edição, os campos que não aparecem no formulário (`trackId`, `album`,
+  `favorito`, `criadoEm`) são mantidos, porque o `PUT` substitui o documento inteiro.
+* **Depois de cada POST, PUT, PATCH e DELETE** a lista é recarregada do banco, e a página dispara o
+  evento `musicas-carregadas` com a lista atual — é nele que o painel vai se pendurar para se
+  atualizar sozinho.
+* **Erros.** O `fetch` não cai no `catch` em 404 ou 500, então `requisitar()` confere `res.ok` e
+  lança um erro com o status. Se o banco estiver fora do ar, a mensagem pergunta se o
+  `docker compose` está rodando.
 
 ## Coleção do Postman
 
@@ -310,12 +350,13 @@ resposta antes de usar os dados.
 
 ```
 Trabalho_BD_III_MoodTune/
-├── docker-compose.yml       MongoDB + RESTHeart
+├── docker-compose.yml       MongoDB + RESTHeart + nginx (site)
 ├── frontend/
 │   ├── index.html           página do site
 │   ├── style.css            estilos, com tema claro e escuro
 │   ├── theme.js             alternância de tema (interface)
 │   ├── app.js               as requisições HTTP ao banco (API)
+│   ├── tela.js              liga a tela às requisições: humores, lista, busca, formulário
 │   ├── importar.js          GET nas APIs externas + POST no banco (API)
 │   └── musicas.json         lista do grupo (artista, título, humor)
 ├── docs/prints/             prints dos testes (evidências)
@@ -326,13 +367,14 @@ Trabalho_BD_III_MoodTune/
 É exatamente a estrutura pedida no enunciado — `importar.js` e `musicas.json` são arquivos do
 frontend, não uma pasta nova.
 
-**Por que três arquivos `.js` e não um só.** Cada um tem uma responsabilidade, e a divisão
+**Por que quatro arquivos `.js` e não um só.** Cada um tem uma responsabilidade, e a divisão
 acompanha quem fez o quê:
 
 | Arquivo | O que faz | De quem |
 |---|---|---|
 | `theme.js` | alterna tema claro/escuro e lembra a escolha | Interface (Gula) |
 | `app.js` | as requisições HTTP ao banco: os cinco métodos | API (Henrique) |
+| `tela.js` | desenha a lista, sorteia pelo humor, abre o formulário e mostra as mensagens | API + Interface |
 | `importar.js` | busca nas APIs externas e popula a coleção | API (Henrique) |
 
 Juntar tudo num arquivo só funcionaria, mas atrapalharia: ficaria um arquivo longo misturando
@@ -340,8 +382,9 @@ assuntos, cada alteração de um integrante esbarraria na do outro no Git, e ser
 explicar na apresentação. Separar por responsabilidade é o normal, e nesta quantidade não traz
 custo nenhum.
 
-A única regra a respeitar é a **ordem no `index.html`**: `app.js` vem antes de `importar.js`,
-porque a importação usa o `BANCO` e os `CABECALHOS` definidos lá.
+A única regra a respeitar é a **ordem no `index.html`**: `app.js`, depois `tela.js`, depois
+`importar.js`. A tela usa as funções de `app.js`, e a importação usa o `BANCO` e os `CABECALHOS`
+de `app.js` e chama `carregarMusicas()` de `tela.js` quando termina.
 
 ## Situação de cada requisito
 
@@ -371,15 +414,15 @@ porque a importação usa o `BANCO` e os `CABECALHOS` definidos lá.
 
 * [x] Coleção do Postman exportada com todas as requisições acima
 
-* [ ] Confirmação antes de excluir (é na tela, fica com o frontend)
+* [x] Confirmação antes de excluir
 
-**3. Frontend** — 2,0 pontos (Gula)
+**3. Frontend** — 2,0 pontos
 
-* [ ] Listagem com busca por texto e pelo menos 1 filtro
+* [x] Listagem com busca por texto e filtros por humor e por gênero
 
-* [ ] Formulário de criar/editar com validação
+* [x] Formulário de criar/editar com validação
 
-* [ ] Mensagens de carregamento, sucesso e erro, mostrando o status HTTP
+* [x] Mensagens de carregamento, sucesso e erro, mostrando o status HTTP
 
 * [x] Layout que funcione no celular — verificado em 390, 768 e 1440 px, sem rolagem horizontal
 
@@ -397,7 +440,7 @@ porque a importação usa o `BANCO` e os `CABECALHOS` definidos lá.
 
 **5. Docker e documentação** — 1,0 ponto
 
-* [x] `docker-compose.yml` na raiz, com MongoDB e RESTHeart
+* [x] `docker-compose.yml` na raiz, com MongoDB, RESTHeart e o site
 
 * [x] Volume nomeado (`dados-mongo`)
 
@@ -409,24 +452,32 @@ porque a importação usa o `BANCO` e os `CABECALHOS` definidos lá.
 
 **Ponto extra (+1,0)** — frontend em container nginx no mesmo compose (`localhost:3000`)
 
-* [ ] Acrescentar o serviço `frontend` ao `docker-compose.yml`
+* [x] Serviço `frontend` (nginx) no `docker-compose.yml`, abrindo em `http://localhost:3000`
 
 ## Observação sobre o tema
 
 O MoodTune usa iTunes Search API + LRCLIB, que **não estão no catálogo de 10 temas** do enunciado.
 O próprio enunciado permite ("um grupo pode propor outra API pública, desde que o professor aprove
 antes") — só é preciso confirmar que essa aprovação foi registrada.
-## Protótipo inicial da interface (Gula)
+## Interface (Gula)
 
-A primeira versão visual nasceu solta na raiz do repositório e **já foi integrada ao
-`frontend/`** — é o que você vê ao abrir o site. Ela traz a estrutura da tela Descobrir, os
-espaços de humor, busca, filtros e músicas, layout responsivo e alternância entre temas claro e
-escuro, com a preferência guardada no navegador.
+A interface nasceu como protótipo visual e **já foi integrada ao `frontend/`**: estrutura da tela
+Descobrir, humores, busca, filtros, cards de música, layout responsivo e alternância entre temas
+claro e escuro, com a preferência guardada no navegador.
 
-Nesta etapa é visual: a busca e os filtros estão desabilitados e os cards são exemplos. A próxima
-etapa é ligar essa tela às funções que já existem em `frontend/app.js` (`listarMusicas`,
-`listarPorHumor`, `buscarMusica`, `criarMusica`, `substituirMusica`, `favoritarMusica` e
-`excluirMusica`), trocando os cards de exemplo pelas músicas reais do banco.
+Agora ela está ligada ao banco por `frontend/tela.js` (ver [Como o site funciona](#como-o-site-funciona)).
+Os humores da tela são os mesmos gravados no banco: feliz, triste, calmo, animado, apaixonado e
+nostálgico. Os itens **Meu painel** e **Registrar momento** da barra lateral continuam marcados como
+"Em breve" — o painel com indicadores e gráficos é a próxima etapa.
 
-O bloco "Carregar as músicas", no fim da página, é a importação e sai da tela quando a listagem
-real estiver pronta.
+O bloco "Carregar as músicas", no fim da página, só aparece enquanto o banco estiver vazio.
+
+## Uso de IA
+
+Usamos o Claude (Anthropic) como apoio, e registramos aqui onde:
+
+* **API (Henrique):** ajuda para ligar a tela às requisições (`tela.js`), padronizar o retorno das
+  funções de `app.js` com o status HTTP, corrigir a escolha do resultado do iTunes no `importar.js`
+  revisar a coleção do Postman e montar o serviço `frontend` (nginx) do `docker-compose.yml`.
+* Todo código foi testado com o Docker rodando: os cinco métodos (GET, POST, PUT, PATCH e DELETE)
+  pela tela e pelo Postman.

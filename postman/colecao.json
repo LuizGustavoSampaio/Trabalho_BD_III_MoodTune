@@ -194,7 +194,7 @@
           "path": ["musicas"],
           "query": [{ "key": "pagesize", "value": "100" }]
         },
-        "description": "Lista as musicas. pagesize=100 porque o padrao do RESTHeart traz so 100 por pagina."
+        "description": "Lista as musicas. pagesize=100 deixa explicito o tamanho da pagina (o padrao do RESTHeart tambem e 100; o maximo e 1000)."
       }
     },
     {
