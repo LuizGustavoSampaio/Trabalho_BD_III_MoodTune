@@ -1,16 +1,7 @@
-/*
- * MoodTune - importacao das musicas.
- *
- * Para cada item de musicas.json: GET no iTunes, GET na LRCLIB, POST no banco.
- * Roda uma vez so; depois o site le tudo do banco.
- * Usa BANCO e CABECALHOS definidos em app.js, carregado antes deste.
- */
-
 const ARQUIVO_DA_LISTA = 'musicas.json';
 const PAUSA_MS = 600;
 const TENTATIVAS = 5;
 
-// Marcas de versao alternativa, para nao importar cover ou gravacao ao vivo.
 const VERSOES_ALTERNATIVAS = [
   'live', 'ao vivo', 'demo', 'mix', 'cover', 'karaoke', 'tribute',
   'acoustic', 'acustico', 'instrumental', 'version', 'versao', 'edit',
@@ -26,10 +17,6 @@ function montarUrl(base, parametros) {
   return url.toString();
 }
 
-/*
- * A LRCLIB responde 503 quando recebe muitas consultas seguidas. Nao e erro nosso:
- * pedimos de novo, dobrando a espera. 404 nao e retentado, ali a resposta e definitiva.
- */
 async function buscarComRetentativa(url) {
   let ultimoStatus = 0;
 
@@ -45,8 +32,6 @@ async function buscarComRetentativa(url) {
   throw new Error(`API ocupada (status ${ultimoStatus}) apos ${TENTATIVAS} tentativas`);
 }
 
-// --- iTunes: metadados, capa e previa ---------------------------------------
-
 function normalizar(texto) {
   return (texto || '')
     .toLowerCase()
@@ -57,11 +42,6 @@ function normalizar(texto) {
     .trim();
 }
 
-/*
- * Escolhe o resultado mais parecido com o pedido. O artista pesa 10x o titulo:
- * so pelo titulo, "Creep" do Stone Temple Pilots empata com o do Radiohead, e um
- * cover do Boyce Avenue ganha do Green Day.
- */
 function escolherMelhorResultado(resultados, artistaPedido, tituloPedido) {
   const artistaAlvo = normalizar(artistaPedido);
   const tituloAlvo = normalizar(tituloPedido);
@@ -79,9 +59,7 @@ function escolherMelhorResultado(resultados, artistaPedido, tituloPedido) {
     else if (titulo.startsWith(tituloAlvo)) pontosTitulo = 2;
     else if (titulo.includes(tituloAlvo)) pontosTitulo = 1;
 
-    // Titulo que nao casa fica fora da disputa: sem isto, "Rehab" da Amy Winehouse
-    // ganhava de "Back To Black (Original Demo)" no desempate por nome mais curto.
-    if (pontosTitulo === 0) return -100;
+    if (pontosTitulo === 0) return -1;
 
     const ehAlternativa = VERSOES_ALTERNATIVAS.some(
       (marca) => titulo.includes(marca) && !tituloAlvo.includes(marca)
@@ -90,7 +68,10 @@ function escolherMelhorResultado(resultados, artistaPedido, tituloPedido) {
     return pontosArtista * 10 + pontosTitulo * 2 - (ehAlternativa ? 1 : 0);
   };
 
-  return [...resultados].sort((a, b) => {
+  const candidatos = resultados.filter((r) => r.trackName && r.trackTimeMillis && pontuar(r) > 0);
+  if (candidatos.length === 0) return null;
+
+  return candidatos.sort((a, b) => {
     const diferenca = pontuar(b) - pontuar(a);
     return diferenca !== 0 ? diferenca : a.trackName.length - b.trackName.length;
   })[0];
@@ -100,7 +81,7 @@ async function buscarNoItunes(artista, titulo) {
   const url = montarUrl('https://itunes.apple.com/search', {
     term: `${artista} ${titulo}`,
     entity: 'song',
-    country: 'BR', // sem isto a busca cai na loja americana
+    country: 'BR',
     limit: 25,
   });
 
@@ -111,6 +92,8 @@ async function buscarNoItunes(artista, titulo) {
   if (!dados.results || dados.results.length === 0) throw new Error('musica nao encontrada no iTunes');
 
   const r = escolherMelhorResultado(dados.results, artista, titulo);
+  if (!r) throw new Error('nenhum resultado do iTunes tem esse titulo');
+
   return {
     trackId: r.trackId,
     titulo: r.trackName,
@@ -123,8 +106,6 @@ async function buscarNoItunes(artista, titulo) {
   };
 }
 
-// --- LRCLIB: letra, so para recortar o trecho -------------------------------
-
 async function buscarLetra({ titulo, artista, album, duracao }) {
   const urlGet = montarUrl('https://lrclib.net/api/get', {
     track_name: titulo,
@@ -135,8 +116,6 @@ async function buscarLetra({ titulo, artista, album, duracao }) {
 
   let resposta = await buscarComRetentativa(urlGet);
 
-  // 404 aqui significa album ou duracao diferentes dos que a LRCLIB tem:
-  // caimos na busca solta, que ignora os dois.
   if (resposta.status === 404) {
     const urlBusca = montarUrl('https://lrclib.net/api/search', {
       track_name: titulo,
@@ -159,11 +138,6 @@ function variedadeDePalavras(linha) {
   return new Set(palavras).size / palavras.length;
 }
 
-/*
- * A linha que mais se repete costuma ser o refrao. Antes disso descartamos linhas
- * de palavras repetidas ("Ba-de-ya, de-ya, de-ya"), senao o destaque do site
- * cairia em onomatopeia - que e justamente o que mais se repete na letra.
- */
 function escolherTrecho(letra) {
   if (!letra) return '';
 
@@ -187,8 +161,6 @@ function escolherTrecho(letra) {
   }
   return melhor;
 }
-
-// --- banco ------------------------------------------------------------------
 
 async function criarColecao() {
   const resposta = await fetch(BANCO, { method: 'PUT', headers: CABECALHOS });
@@ -216,10 +188,14 @@ async function gravarNoBanco(documento) {
 }
 
 async function quantasMusicasNoBanco() {
-  const resposta = await fetch(`${BANCO}?pagesize=1000`, { headers: CABECALHOS });
-  if (!resposta.ok) return 0;
-  const lista = await resposta.json();
-  return Array.isArray(lista) ? lista.length : 0;
+  try {
+    const resposta = await fetch(`${BANCO}?pagesize=1000`, { headers: CABECALHOS });
+    if (!resposta.ok) return 0;
+    const lista = await resposta.json();
+    return Array.isArray(lista) ? lista.length : 0;
+  } catch {
+    return 0;
+  }
 }
 
 function montarDocumento({ item, doItunes, trecho }) {
@@ -232,7 +208,7 @@ function montarDocumento({ item, doItunes, trecho }) {
   }
 
   return {
-    trackId: doItunes.trackId, // referencia para o registro no iTunes
+    trackId: doItunes.trackId,
     titulo: doItunes.titulo,
     artista: doItunes.artista,
     album: doItunes.album,
@@ -248,8 +224,6 @@ function montarDocumento({ item, doItunes, trecho }) {
   };
 }
 
-// --- a importacao -----------------------------------------------------------
-
 async function importarTudo(avisar = console.log) {
   const resposta = await fetch(ARQUIVO_DA_LISTA);
   if (!resposta.ok) throw new Error(`nao achei ${ARQUIVO_DA_LISTA} (status ${resposta.status})`);
@@ -263,11 +237,7 @@ async function importarTudo(avisar = console.log) {
   for (const [indice, item] of lista.entries()) {
     const posicao = `[${indice + 1}/${lista.length}]`;
 
-    // O try/catch por musica e o que impede uma falha de parar a importacao inteira.
     try {
-      // O iTunes vem antes da checagem de duplicata de proposito: gravamos com o nome
-      // que ELE devolve ("Pais Tropical" vira "Pais Tropical" com acento), entao comparar
-      // pelo nome da nossa lista nao acharia o que ja esta no banco e duplicaria tudo.
       const doItunes = await buscarNoItunes(item.artista, item.titulo);
 
       if (await jaExisteNoBanco(doItunes.titulo, doItunes.artista)) {
@@ -276,7 +246,7 @@ async function importarTudo(avisar = console.log) {
         continue;
       }
 
-      let trecho = item.trecho || ''; // trecho escolhido a mao tem prioridade
+      let trecho = item.trecho || '';
       if (!trecho) {
         const letra = await buscarLetra(doItunes);
         trecho = escolherTrecho(letra && letra.plainLyrics);
@@ -303,16 +273,12 @@ async function importarTudo(avisar = console.log) {
   return contador;
 }
 
-// --- botao da pagina --------------------------------------------------------
-
 document.addEventListener('DOMContentLoaded', async function () {
   const secao = document.querySelector('.setup');
   const botao = document.getElementById('botao-importar');
   const andamento = document.getElementById('andamento');
   if (!secao || !botao) return;
 
-  // O bloco so interessa enquanto o banco estiver vazio: com musicas gravadas
-  // ele sai da tela sozinho, e volta se alguem apagar a colecao.
   if ((await quantasMusicasNoBanco()) > 0) {
     secao.hidden = true;
     return;
@@ -334,6 +300,7 @@ document.addEventListener('DOMContentLoaded', async function () {
       avisar('O docker compose esta rodando? Teste: http://localhost:8080/musicas');
     } finally {
       botao.disabled = false;
+      await carregarMusicas();
     }
   });
 });

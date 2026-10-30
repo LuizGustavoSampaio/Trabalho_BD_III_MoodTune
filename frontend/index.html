@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Moodtune: estrutura inicial da interface de músicas para seu momento.">
-  <title>Moodtune —</title>
+  <meta name="description" content="Moodtune: músicas para o seu momento.">
+  <title>Moodtune</title>
   <link rel="stylesheet" href="style.css">
   <script src="theme.js"></script>
 </head>
@@ -26,37 +26,37 @@
       <p class="eyebrow">DÊ PLAY NO SEU MOMENTO</p>
       <h1 id="intro-title">Como você está <em>hoje?</em></h1>
       <p class="subtitle">Um sentimento, uma descoberta. Encontre músicas que combinam com você.</p>
-      <!-- Etapa futura: tornar os humores selecionáveis e conectá-los à recomendação. -->
-      <ul class="moods" aria-label="Humores previstos para o aplicativo">
-        <li class="mood"><span aria-hidden="true">😊</span><b>Feliz</b></li>
-        <li class="mood"><span aria-hidden="true">😔</span><b>Triste</b></li>
-        <li class="mood"><span aria-hidden="true">😌</span><b>Calmo</b></li>
-        <li class="mood"><span aria-hidden="true">🤩</span><b>Animado</b></li>
-        <li class="mood"><span aria-hidden="true">😰</span><b>Ansioso</b></li>
-        <li class="mood"><span aria-hidden="true">🧐</span><b>Focado</b></li>
-      </ul>
+      <div class="moods" role="group" aria-label="Escolha como você está se sentindo">
+        <button class="mood" type="button" data-humor="feliz" aria-pressed="false"><span aria-hidden="true">😊</span><b>Feliz</b></button>
+        <button class="mood" type="button" data-humor="triste" aria-pressed="false"><span aria-hidden="true">😔</span><b>Triste</b></button>
+        <button class="mood" type="button" data-humor="calmo" aria-pressed="false"><span aria-hidden="true">😌</span><b>Calmo</b></button>
+        <button class="mood" type="button" data-humor="animado" aria-pressed="false"><span aria-hidden="true">🤩</span><b>Animado</b></button>
+        <button class="mood" type="button" data-humor="apaixonado" aria-pressed="false"><span aria-hidden="true">😍</span><b>Apaixonado</b></button>
+        <button class="mood" type="button" data-humor="nostalgico" aria-pressed="false"><span aria-hidden="true">🥹</span><b>Nostálgico</b></button>
+      </div>
       <div class="hero">
-        <div class="hero-content"><span class="pill">NA SUA FREQUÊNCIA</span><h2>Seu momento.<br>Sua trilha sonora.</h2><p>Uma nova forma de encontrar músicas que acompanham o que você sente.</p><span class="coming-soon">Sua próxima descoberta começa aqui ↗</span></div>
-        <div class="record-art" aria-hidden="true"><div class="orbit"></div><div class="vinyl"><div class="label">Moodtune<small>FEEL THE MUSIC</small></div></div><span>♪</span></div>
+        <div class="hero-content">
+          <span id="sugestao-humor" class="pill">NA SUA FREQUÊNCIA</span>
+          <h2 id="sugestao-titulo">Seu momento.<br>Sua trilha sonora.</h2>
+          <p id="sugestao-artista">Uma nova forma de encontrar músicas que acompanham o que você sente.</p>
+          <blockquote id="sugestao-trecho" class="trecho" hidden></blockquote>
+          <audio id="sugestao-previa" controls preload="none" hidden></audio>
+          <button id="sortear-outra" class="primary" type="button" hidden>Sortear outra</button>
+          <span id="sugestao-dica" class="coming-soon">Escolha um humor acima e receba uma música ↗</span>
+        </div>
+        <div class="record-art" aria-hidden="true"><div class="orbit"></div><div class="vinyl"><div id="sugestao-capa" class="label">Moodtune<small>FEEL THE MUSIC</small></div></div><span>♪</span></div>
       </div>
     </section>
     <section aria-labelledby="songs-title">
-      <div class="section-heading"><div><p class="eyebrow">DESCUBRA NOVOS SONS</p><h2 id="songs-title">Para entrar no clima</h2></div><span class="muted">Seu próximo som está chegando</span></div>
-      <!-- Campos desabilitados nesta etapa: apenas estrutura e visual. -->
+      <div class="section-heading"><div><p class="eyebrow">DESCUBRA NOVOS SONS</p><h2 id="songs-title">Para entrar no clima</h2></div><button id="nova-musica" class="primary" type="button">＋ Nova música</button></div>
       <div class="filters">
-        <label class="search"><span aria-hidden="true">⌕</span><input type="search" placeholder="Buscar música ou artista" aria-label="Buscar música ou artista (em breve)" disabled></label>
-        <label class="genre-label">Gênero<select disabled><option>Todos os gêneros</option></select></label>
-        <button class="secondary" disabled>Limpar filtros</button>
+        <label class="search"><span aria-hidden="true">⌕</span><input id="busca" type="search" placeholder="Buscar música ou artista" aria-label="Buscar música ou artista"></label>
+        <label class="genre-label">Gênero<select id="filtro-genero"><option value="">Todos os gêneros</option></select></label>
+        <button id="limpar-filtros" class="secondary" type="button">Limpar filtros</button>
       </div>
-      <p class="stage-note">Visual inicial: a busca, os filtros e o carregamento de músicas serão implementados nas próximas etapas.</p>
-      <div class="song-grid">
-        <article class="song"><div class="cover" style="--cover-bg:linear-gradient(135deg,#d9aa65,#ba6c40)" aria-hidden="true"><span class="cover-number">MOODTUNE / 01</span><span class="cover-word">solar</span></div><h3>Sua próxima descoberta</h3><p class="artist">Espaço reservado para uma música</p><span class="tag">Em breve</span></article>
-        <article class="song"><div class="cover" style="--cover-bg:linear-gradient(135deg,#83a594,#376a5e)" aria-hidden="true"><span class="cover-number">MOODTUNE / 02</span><span class="cover-word">afeto</span></div><h3>Um som para acompanhar</h3><p class="artist">Espaço reservado para uma música</p><span class="tag">Em breve</span></article>
-        <article class="song"><div class="cover" style="--cover-bg:linear-gradient(135deg,#bea98b,#7c8e71)" aria-hidden="true"><span class="cover-number">MOODTUNE / 03</span><span class="cover-word">leve</span></div><h3>Uma pausa no seu dia</h3><p class="artist">Espaço reservado para uma música</p><span class="tag">Em breve</span></article>
-        <article class="song"><div class="cover" style="--cover-bg:linear-gradient(135deg,#8b93ba,#484976)" aria-hidden="true"><span class="cover-number">MOODTUNE / 04</span><span class="cover-word">cosmos</span></div><h3>Na sua frequência</h3><p class="artist">Espaço reservado para uma música</p><span class="tag">Em breve</span></article>
-      </div>
+      <p id="mensagem" class="stage-note" role="status" aria-live="polite"></p>
+      <div id="lista-musicas" class="song-grid"></div>
     </section>
-    <!-- Some sozinho quando o banco ja tem musicas (ver importar.js). -->
     <section class="setup" aria-labelledby="setup-title">
       <p class="eyebrow">PRIMEIRA VEZ RODANDO O PROJETO</p>
       <h2 id="setup-title">Carregar as músicas</h2>
@@ -71,8 +71,43 @@
     <footer><span><b>Moodtune.</b> &nbsp; Feito para sentir.</span><span>Trabalho acadêmico · Interface: João Marcos Gula</span></footer>
   </main>
 
-  <!-- app.js antes de importar.js: a importacao usa BANCO e CABECALHOS. -->
+  <template id="modelo-musica">
+    <article class="song">
+      <div class="cover"><img alt="" loading="lazy" hidden><span class="cover-word"></span></div>
+      <h3></h3>
+      <p class="artist"></p>
+      <div class="song-bottom"><span class="tag"></span><button class="listen" type="button" data-acao="ouvir">Ouvir ▶</button></div>
+      <div class="song-actions">
+        <button type="button" data-acao="favoritar" aria-pressed="false">♡ Favoritar</button>
+        <button type="button" data-acao="editar">Editar</button>
+        <button type="button" data-acao="excluir">Excluir</button>
+      </div>
+    </article>
+  </template>
+
+  <dialog id="janela-formulario" aria-labelledby="formulario-titulo">
+    <form id="formulario-musica" novalidate>
+      <h2 id="formulario-titulo">Nova música</h2>
+      <label>Título<input name="titulo" maxlength="120"></label>
+      <label>Artista<input name="artista" maxlength="120"></label>
+      <div class="form-linha">
+        <label>Humor<select name="humor"></select></label>
+        <label>Duração (segundos)<input name="duracao" type="number" min="1" max="3600" step="1"></label>
+      </div>
+      <label>Trecho da letra<textarea name="trecho" rows="2" maxlength="200"></textarea></label>
+      <label>Tags (separadas por vírgula)<input name="tags" placeholder="pop, balada"></label>
+      <label>Capa (URL)<input name="capa" type="url" placeholder="https://..."></label>
+      <label>Prévia de áudio (URL)<input name="previa" type="url" placeholder="https://..."></label>
+      <p id="formulario-erro" class="form-erro" role="alert"></p>
+      <div class="form-acoes">
+        <button id="cancelar-formulario" class="secondary" type="button">Cancelar</button>
+        <button class="primary" type="submit">Salvar</button>
+      </div>
+    </form>
+  </dialog>
+
   <script src="app.js"></script>
+  <script src="tela.js"></script>
   <script src="importar.js"></script>
 </body>
 </html>
