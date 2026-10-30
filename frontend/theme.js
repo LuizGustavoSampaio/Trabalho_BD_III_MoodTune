@@ -1,4 +1,3 @@
-﻿// Preferência visual: segue o sistema até o usuário escolher um tema.
 (() => {
   const storageKey = 'moodtune-theme';
   const systemTheme = window.matchMedia('(prefers-color-scheme: dark)');
@@ -6,9 +5,7 @@
   try {
     const stored = localStorage.getItem(storageKey);
     if (stored === 'dark' || stored === 'light') preference = stored;
-  } catch {
-    // A troca continua funcionando se o navegador bloquear o armazenamento.
-  }
+  } catch {}
 
   function applyTheme(theme) {
     document.documentElement.dataset.theme = theme;
@@ -28,9 +25,7 @@
       applyTheme(preference);
       try {
         localStorage.setItem(storageKey, preference);
-      } catch {
-        // Sem armazenamento, mantém a escolha até a página ser recarregada.
-      }
+      } catch {}
     });
   });
 

@@ -111,7 +111,6 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "// 201 quando a colecao e criada agora; 200 quando ja existia de uma execucao anterior.",
               "pm.test('status 201 (criada) ou 200 (ja existia)', function () {",
               "    pm.expect(pm.response.code).to.be.oneOf([201, 200]);",
               "});"
@@ -142,8 +141,6 @@
               "    pm.expect(pm.response.headers.has('Location')).to.be.true;",
               "});",
               "",
-              "// O RESTHeart devolve a URL do documento criado no cabecalho Location.",
-              "// Pegamos o trecho depois da ultima barra (o _id) e guardamos para as proximas requisicoes.",
               "const local = pm.response.headers.get('Location');",
               "const id = local.split('/').pop();",
               "pm.collectionVariables.set('idMusica', id);",
