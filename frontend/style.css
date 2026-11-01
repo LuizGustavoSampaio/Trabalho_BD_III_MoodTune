@@ -109,3 +109,16 @@ dialog::backdrop { background: #0b141199; }
   .form-linha { grid-template-columns: 1fr; }
   .song-actions { flex-wrap: wrap; }
 }
+
+/* Melhorias recuperadas do protótipo, integradas às funções atuais. */
+.mood-feedback { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: -10px 0 22px; }
+.mood-feedback p { margin: 0; }
+.mood-feedback button { flex-shrink: 0; }
+.mood[aria-pressed="true"] { box-shadow: inset 0 0 0 1px var(--green); }
+#sugestao-titulo { white-space: pre-line; }
+.import-options summary { cursor: pointer; color: var(--green); font-size: 12px; font-weight: 600; padding: 8px 0; }
+.import-options summary:focus-visible { outline: 3px solid #77a58e; outline-offset: 3px; border-radius: 3px; }
+.import-options[open] summary { margin-bottom: 8px; }
+.import-options code { font-size: 11px; overflow-wrap: anywhere; }
+#andamento { overflow-wrap: anywhere; }
+@media(max-width:560px) { .mood-feedback { flex-direction: column; align-items: flex-start; gap: 10px; } }

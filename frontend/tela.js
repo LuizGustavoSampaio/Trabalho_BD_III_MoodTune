@@ -12,10 +12,13 @@ const estado = {
   humor: '',
   sugestao: null,
   editando: null,
+  consultaHumor: 0,
 };
 
 const elementos = {
   moods: document.querySelectorAll('.mood'),
+  humorStatus: document.getElementById('humor-status'),
+  limparHumor: document.getElementById('limpar-humor'),
   sugestaoHumor: document.getElementById('sugestao-humor'),
   sugestaoTitulo: document.getElementById('sugestao-titulo'),
   sugestaoArtista: document.getElementById('sugestao-artista'),
@@ -170,16 +173,50 @@ function mostrarSugestao(musica) {
   elementos.sugestaoDica.hidden = true;
 }
 
-async function escolherHumor(humor) {
-  estado.humor = humor;
+function atualizarSelecaoHumor() {
   elementos.moods.forEach((botao) => {
-    botao.setAttribute('aria-pressed', String(botao.dataset.humor === humor));
+    botao.setAttribute('aria-pressed', String(botao.dataset.humor === estado.humor));
   });
+  elementos.humorStatus.textContent = estado.humor
+    ? `Humor selecionado: ${nomeDoHumor(estado.humor)}.`
+    : 'Nenhum humor selecionado. Escolha como você está se sentindo.';
+  elementos.limparHumor.hidden = !estado.humor;
+}
+
+function limparHumor(devolverFoco = false) {
+  const anterior = [...elementos.moods].find((botao) => botao.dataset.humor === estado.humor);
+  // Invalida respostas que ainda estejam chegando para o humor anterior.
+  estado.consultaHumor++;
+  estado.humor = '';
+  estado.sugestao = null;
+  atualizarSelecaoHumor();
+  elementos.sugestaoHumor.textContent = 'NA SUA FREQUÊNCIA';
+  elementos.sugestaoTitulo.textContent = 'Seu momento.\nSua trilha sonora.';
+  elementos.sugestaoArtista.textContent = 'Uma nova forma de encontrar músicas que acompanham o que você sente.';
+  elementos.sugestaoTrecho.textContent = '';
+  elementos.sugestaoTrecho.hidden = true;
+  elementos.sugestaoPrevia.pause();
+  elementos.sugestaoPrevia.removeAttribute('src');
+  elementos.sugestaoPrevia.hidden = true;
+  elementos.sugestaoCapa.style.backgroundImage = '';
+  elementos.sugestaoCapa.classList.remove('com-capa');
+  elementos.sortearOutra.hidden = true;
+  elementos.sugestaoDica.hidden = false;
+  desenharLista();
+  mostrarMensagem('Filtro de humor removido.', 'sucesso');
+  if (devolverFoco && anterior) anterior.focus();
+}
+
+async function escolherHumor(humor) {
+  const consulta = ++estado.consultaHumor;
+  estado.humor = humor;
+  atualizarSelecaoHumor();
   desenharLista();
 
   mostrarMensagem(`Buscando músicas para o humor "${nomeDoHumor(humor)}"...`, 'carregando');
   try {
     const { status, musicas } = await listarPorHumor(humor);
+    if (consulta !== estado.consultaHumor) return;
     if (musicas.length === 0) {
       mostrarMensagem(`Ainda não há músicas com o humor "${nomeDoHumor(humor)}" (GET ${status}).`, 'erro');
       return;
@@ -192,6 +229,7 @@ async function escolherHumor(humor) {
     mostrarSugestao(sorteada);
     mostrarMensagem(`${musicas.length} músicas com o humor "${nomeDoHumor(humor)}" (GET ${status}).`, 'sucesso');
   } catch (erro) {
+    if (consulta !== estado.consultaHumor) return;
     mostrarMensagem(textoDoErro(erro), 'erro');
   }
 }
@@ -306,12 +344,10 @@ async function salvarFormulario(evento) {
 }
 
 function limparFiltros() {
-  estado.humor = '';
   elementos.busca.value = '';
   elementos.genero.value = '';
-  elementos.moods.forEach((botao) => botao.setAttribute('aria-pressed', 'false'));
-  elementos.sortearOutra.hidden = true;
-  desenharLista();
+  limparHumor();
+  mostrarMensagem('Filtros removidos.', 'sucesso');
 }
 
 function prepararTela() {
@@ -319,13 +355,17 @@ function prepararTela() {
   elementos.formulario.elements.humor.replaceChildren(new Option('Escolha um humor', ''), ...opcoesDeHumor);
 
   elementos.moods.forEach((botao) => {
-    botao.addEventListener('click', () => escolherHumor(botao.dataset.humor));
+    botao.addEventListener('click', () => {
+      if (estado.humor === botao.dataset.humor) limparHumor();
+      else escolherHumor(botao.dataset.humor);
+    });
   });
   elementos.sortearOutra.addEventListener('click', () => escolherHumor(estado.humor));
 
   elementos.busca.addEventListener('input', desenharLista);
   elementos.genero.addEventListener('change', desenharLista);
   elementos.limparFiltros.addEventListener('click', limparFiltros);
+  elementos.limparHumor.addEventListener('click', () => limparHumor(true));
 
   elementos.lista.addEventListener('click', (evento) => {
     const botao = evento.target.closest('[data-acao]');

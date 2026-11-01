@@ -21,7 +21,7 @@
     <div class="author"><b aria-hidden="true">G</b><div>Projeto acadêmico<small>Interface por João Marcos Gula</small></div></div>
   </aside>
   <main id="inicio">
-    <header><span>MÚSICA & SENTIMENTO</span><div class="header-actions"><span class="badge">● &nbsp; Etapa 1 · Interface inicial</span><button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false" hidden><span aria-hidden="true">◐</span> Tema escuro</button></div></header>
+    <header><span>MÚSICA & SENTIMENTO</span><div class="header-actions"><span class="badge">● &nbsp; Interface · Descobrir</span><button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false" hidden><span aria-hidden="true">◐</span> Tema escuro</button></div></header>
     <section aria-labelledby="intro-title">
       <p class="eyebrow">DÊ PLAY NO SEU MOMENTO</p>
       <h1 id="intro-title">Como você está <em>hoje?</em></h1>
@@ -33,6 +33,10 @@
         <button class="mood" type="button" data-humor="animado" aria-pressed="false"><span aria-hidden="true">🤩</span><b>Animado</b></button>
         <button class="mood" type="button" data-humor="apaixonado" aria-pressed="false"><span aria-hidden="true">😍</span><b>Apaixonado</b></button>
         <button class="mood" type="button" data-humor="nostalgico" aria-pressed="false"><span aria-hidden="true">🥹</span><b>Nostálgico</b></button>
+      </div>
+      <div class="mood-feedback">
+        <p id="humor-status" class="muted" role="status">Nenhum humor selecionado. Escolha como você está se sentindo.</p>
+        <button id="limpar-humor" class="secondary" type="button" hidden>Limpar humor</button>
       </div>
       <div class="hero">
         <div class="hero-content">
@@ -65,8 +69,13 @@
         tudo no MongoDB &mdash; leva cerca de um minuto e só precisa ser feito uma vez. Se parar no
         meio, é só clicar de novo: o que já entrou é pulado, nada duplica.
       </p>
+      <details class="import-options">
+        <summary>Ver opções de importação</summary>
+        <p>Antes de importar, inicie os serviços com <code>docker compose up -d</code> na raiz
+          do projeto. A importação grava músicas no banco local e pode levar alguns minutos.</p>
       <button id="botao-importar" class="primary" type="button">Importar músicas</button>
-      <pre id="andamento" aria-live="polite"></pre>
+      <pre id="andamento" aria-live="polite" aria-label="Andamento da importação"></pre>
+      </details>
     </section>
     <footer><span><b>Moodtune.</b> &nbsp; Feito para sentir.</span><span>Trabalho acadêmico · Interface: João Marcos Gula</span></footer>
   </main>

@@ -481,3 +481,20 @@ Usamos o Claude (Anthropic) como apoio, e registramos aqui onde:
   revisar a coleção do Postman e montar o serviço `frontend` (nginx) do `docker-compose.yml`.
 * Todo código foi testado com o Docker rodando: os cinco métodos (GET, POST, PUT, PATCH e DELETE)
   pela tela e pelo Postman.
+
+## Refinamentos da interface — Gula
+
+Esta etapa reaproveita as melhorias do protótipo na interface atual em `frontend/`,
+preservando busca, filtros, formulário, listagem e os arquivos de API do grupo.
+
+- O humor selecionado aparece em uma mensagem acessível e ganha destaque visual.
+- Clicar novamente no mesmo humor desfaz a seleção.
+- **Limpar humor** remove apenas esse filtro, mantendo a busca e o gênero escolhidos.
+  O banner volta ao estado inicial e a prévia de áudio é interrompida.
+- Uma resposta atrasada de uma consulta de humor não sobrescreve uma seleção mais
+  recente nem uma limpeza feita enquanto a consulta estava em andamento.
+- As opções de importação ficam em um bloco recolhível, com instruções para iniciar
+  o banco. O comportamento existente de exibir a seção com o banco vazio foi mantido.
+
+Os refinamentos em HTML, CSS e `frontend/tela.js` foram desenvolvidos com apoio do Codex.
+Os arquivos `frontend/app.js`, `frontend/importar.js` e `frontend/theme.js` não foram alterados.
