@@ -126,10 +126,11 @@ Base `http://localhost:8080`, autenticação Basic `admin` / `secret`.
 | Excluir | `DELETE /musicas/{id}` | 204 |
 | Sem autenticação | qualquer uma | 401 |
 
-No site, quem visita escolhe um humor (`GET` filtrado e sorteio de uma música), busca, filtra e
-favorita (`PATCH`). Clicar de novo no humor escolhido, ou em **Limpar humor**, desfaz a seleção e
-para a prévia. O botão **Gerenciar músicas** mostra **＋ Nova música** (`POST`), **Editar**
-(`PUT`, formulário com validação) e **Excluir** (`DELETE`, com confirmação). Toda mensagem mostra o
+No site, quem visita escolhe um humor (`GET` filtrado e sorteio de uma música), busca por título,
+artista ou álbum, filtra por gênero e favorita (`PATCH`); o botão **♥ Favoritas** mostra só as
+marcadas. Clicar de novo no humor escolhido, ou em **Limpar humor**, desfaz a seleção e
+para a prévia. Quem visita não cadastra, edita nem exclui músicas: o acervo é só o pré-definido,
+e `PUT /musicas/{id}` e `DELETE` são demonstrados pela coleção do Postman. Toda mensagem mostra o
 status HTTP da resposta.
 
 ## Coleção do Postman

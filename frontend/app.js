@@ -98,7 +98,11 @@ let temaEscolhido = null;
 function aplicarTema(tema) {
   document.documentElement.dataset.theme = tema;
   const botao = document.getElementById('theme-toggle');
-  if (botao) botao.setAttribute('aria-pressed', String(tema === 'dark'));
+  if (!botao) return;
+  const icone = document.createElement('span');
+  icone.setAttribute('aria-hidden', 'true');
+  icone.textContent = tema === 'dark' ? '☀' : '☾';
+  botao.replaceChildren(icone, tema === 'dark' ? ' Tema claro' : ' Tema escuro');
 }
 
 try {
@@ -111,7 +115,6 @@ aplicarTema(temaEscolhido || (temaDoSistema.matches ? 'dark' : 'light'));
 function prepararTema() {
   const botao = document.getElementById('theme-toggle');
   botao.hidden = false;
-  botao.setAttribute('aria-pressed', String(document.documentElement.dataset.theme === 'dark'));
   botao.addEventListener('click', () => {
     temaEscolhido = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
     aplicarTema(temaEscolhido);
@@ -161,11 +164,6 @@ async function listarPorHumor(humor) {
   return { status: resposta.status, musicas: (await resposta.json()).map(comId) };
 }
 
-async function buscarMusica(id) {
-  const resposta = await requisitar(`${BANCO}/${id}`);
-  return { status: resposta.status, musica: comId(await resposta.json()) };
-}
-
 async function criarMusica(musica) {
   const agora = new Date().toISOString();
   const resposta = await requisitar(BANCO, {
@@ -174,14 +172,6 @@ async function criarMusica(musica) {
   });
   const id = (resposta.headers.get('Location') || '').split('/').pop();
   return { status: resposta.status, id };
-}
-
-async function substituirMusica(id, musica) {
-  const resposta = await requisitar(`${BANCO}/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify({ ...semCamposDoBanco(musica), atualizadoEm: new Date().toISOString() }),
-  });
-  return { status: resposta.status };
 }
 
 async function favoritarMusica(id, favorito) {
@@ -197,11 +187,6 @@ async function salvarTrecho(id, trecho) {
     method: 'PATCH',
     body: JSON.stringify({ trecho, atualizadoEm: new Date().toISOString() }),
   });
-  return { status: resposta.status };
-}
-
-async function excluirMusica(id) {
-  const resposta = await requisitar(`${BANCO}/${id}`, { method: 'DELETE' });
   return { status: resposta.status };
 }
 
@@ -458,8 +443,7 @@ const estado = {
   musicas: [],
   humor: '',
   sugestao: null,
-  editando: null,
-  gerenciando: false,
+  soFavoritas: false,
   limite: MUSICAS_POR_PAGINA,
   consultaHumor: 0,
 };
@@ -480,18 +464,12 @@ const elementos = {
   sortearOutra: document.getElementById('sortear-outra'),
   busca: document.getElementById('busca'),
   genero: document.getElementById('filtro-genero'),
+  soFavoritas: document.getElementById('so-favoritas'),
   limparFiltros: document.getElementById('limpar-filtros'),
   mensagem: document.getElementById('mensagem'),
   lista: document.getElementById('lista-musicas'),
   mostrarMais: document.getElementById('mostrar-mais'),
   modelo: document.getElementById('modelo-musica'),
-  gerenciar: document.getElementById('gerenciar'),
-  novaMusica: document.getElementById('nova-musica'),
-  janela: document.getElementById('janela-formulario'),
-  formulario: document.getElementById('formulario-musica'),
-  formularioTitulo: document.getElementById('formulario-titulo'),
-  formularioErro: document.getElementById('formulario-erro'),
-  cancelarFormulario: document.getElementById('cancelar-formulario'),
 };
 
 function nomeDoHumor(humor) {
@@ -553,8 +531,10 @@ function musicasFiltradas() {
   return estado.musicas.filter((musica) => {
     const combinaHumor = !estado.humor || musica.humor === estado.humor;
     const combinaGenero = !genero || (musica.tags || []).includes(genero);
-    const combinaTexto = !texto || simplificar(`${musica.titulo} ${musica.artista}`).includes(texto);
-    return combinaHumor && combinaGenero && combinaTexto;
+    const combinaFavorita = !estado.soFavoritas || musica.favorito;
+    const onde = `${musica.titulo} ${musica.artista} ${musica.album || ''} ${nomeDoHumor(musica.humor)}`;
+    const combinaTexto = !texto || simplificar(onde).includes(texto);
+    return combinaHumor && combinaGenero && combinaFavorita && combinaTexto;
   });
 }
 
@@ -562,8 +542,9 @@ function criarCartao(musica) {
   const cartao = elementos.modelo.content.firstElementChild.cloneNode(true);
   cartao.dataset.id = musica.id;
 
+  const capa = cartao.querySelector('.cover');
+  capa.setAttribute('aria-label', `Ouvir ${musica.titulo}`);
   if (musica.capa) {
-    const capa = cartao.querySelector('.cover');
     const imagem = cartao.querySelector('img');
     imagem.src = musica.capa;
     imagem.hidden = false;
@@ -578,10 +559,6 @@ function criarCartao(musica) {
   cartao.querySelector('h3').title = musica.titulo;
   cartao.querySelector('.artist').textContent = musica.artista;
   cartao.querySelector('.tag').textContent = nomeDoHumor(musica.humor);
-
-  if (!estado.gerenciando) {
-    cartao.querySelectorAll('.so-gerenciar').forEach((botao) => botao.remove());
-  }
 
   const favoritar = cartao.querySelector('[data-acao="favoritar"]');
   favoritar.setAttribute('aria-pressed', String(Boolean(musica.favorito)));
@@ -598,7 +575,9 @@ function desenharLista() {
   if (lista.length === 0) {
     const vazio = document.createElement('p');
     vazio.className = 'empty';
-    vazio.textContent = 'Nenhuma música encontrada.';
+    vazio.textContent = estado.soFavoritas
+      ? 'Nenhuma favorita por aqui. Use o ♡ Favoritar nos cartões.'
+      : 'Nenhuma música encontrada.';
     elementos.lista.append(vazio);
   }
 
@@ -709,121 +688,17 @@ async function alternarFavorito(musica) {
   }
 }
 
-async function confirmarExclusao(musica) {
-  const confirmou = confirm(`Excluir "${musica.titulo}", de ${musica.artista}? Essa ação não pode ser desfeita.`);
-  if (!confirmou) return;
-
-  mostrarMensagem('Excluindo...', 'carregando');
-  try {
-    const { status } = await excluirMusica(musica.id);
-    if (await carregarMusicas()) mostrarMensagem(`"${musica.titulo}" foi excluída (DELETE ${status}).`, 'sucesso');
-  } catch (erro) {
-    mostrarMensagem(textoDoErro(erro), 'erro');
-  }
-}
-
-function abrirFormulario(musica) {
-  estado.editando = musica || null;
-  const campos = elementos.formulario.elements;
-
-  elementos.formulario.reset();
-  elementos.formularioErro.textContent = '';
-  elementos.formularioTitulo.textContent = musica ? 'Editar música' : 'Nova música';
-
-  if (musica) {
-    campos.titulo.value = musica.titulo || '';
-    campos.artista.value = musica.artista || '';
-    campos.humor.value = musica.humor || '';
-    campos.duracao.value = musica.duracao || '';
-    campos.trecho.value = musica.trecho || '';
-    campos.tags.value = (musica.tags || []).join(', ');
-    campos.capa.value = musica.capa || '';
-    campos.previa.value = musica.previa || '';
-  } else {
-    campos.humor.value = estado.humor;
-  }
-
-  elementos.janela.showModal();
-  campos.titulo.focus();
-}
-
-function lerFormulario() {
-  const campos = elementos.formulario.elements;
-  return {
-    titulo: campos.titulo.value.trim(),
-    artista: campos.artista.value.trim(),
-    humor: campos.humor.value,
-    duracao: Number(campos.duracao.value),
-    trecho: campos.trecho.value.trim(),
-    tags: campos.tags.value
-      .split(',')
-      .map((tag) => tag.trim().toLowerCase())
-      .filter((tag) => tag !== ''),
-    capa: campos.capa.value.trim(),
-    previa: campos.previa.value.trim(),
-  };
-}
-
-function ehEndereco(texto) {
-  return /^https?:\/\/\S+$/.test(texto);
-}
-
-function validar(dados) {
-  if (!dados.titulo) return 'Preencha o título.';
-  if (!dados.artista) return 'Preencha o artista.';
-  if (!HUMORES[dados.humor]) return 'Escolha um humor.';
-  if (!Number.isInteger(dados.duracao) || dados.duracao <= 0) {
-    return 'A duração precisa ser um número inteiro de segundos, maior que zero.';
-  }
-  if (!dados.trecho) return 'Escreva o trecho da letra que vai ficar em destaque.';
-  if (dados.capa && !ehEndereco(dados.capa)) return 'A capa precisa ser um endereço começando com http:// ou https://.';
-  if (dados.previa && !ehEndereco(dados.previa)) return 'A prévia precisa ser um endereço começando com http:// ou https://.';
-  return '';
-}
-
-async function salvarFormulario(evento) {
-  evento.preventDefault();
-
-  const dados = lerFormulario();
-  const problema = validar(dados);
-  elementos.formularioErro.textContent = problema;
-  if (problema) return;
-
-  const musica = estado.editando;
-  try {
-    let texto;
-    if (musica) {
-      const { status } = await substituirMusica(musica.id, { ...musica, ...dados });
-      texto = `"${dados.titulo}" foi atualizada (PUT ${status}).`;
-    } else {
-      const { status } = await criarMusica({ ...dados, favorito: false });
-      texto = `"${dados.titulo}" foi cadastrada (POST ${status}).`;
-    }
-
-    elementos.janela.close();
-    if (await carregarMusicas()) mostrarMensagem(texto, 'sucesso');
-  } catch (erro) {
-    elementos.formularioErro.textContent = textoDoErro(erro);
-  }
-}
-
-function alternarGerenciamento() {
-  estado.gerenciando = !estado.gerenciando;
-  elementos.gerenciar.setAttribute('aria-pressed', String(estado.gerenciando));
-  elementos.gerenciar.textContent = estado.gerenciando ? 'Sair do gerenciamento' : 'Gerenciar músicas';
-  elementos.novaMusica.hidden = !estado.gerenciando;
-  desenharLista();
-
-  if (estado.gerenciando) {
-    mostrarMensagem('Modo gerenciar: agora dá para cadastrar, editar e excluir músicas.', 'sucesso');
-  } else {
-    mostrarMensagem('Modo gerenciar desligado.', 'carregando');
-  }
+function alternarSoFavoritas() {
+  estado.soFavoritas = !estado.soFavoritas;
+  elementos.soFavoritas.setAttribute('aria-pressed', String(estado.soFavoritas));
+  filtrarDeNovo();
 }
 
 function limparFiltros() {
   elementos.busca.value = '';
   elementos.genero.value = '';
+  estado.soFavoritas = false;
+  elementos.soFavoritas.setAttribute('aria-pressed', 'false');
   limparHumor();
   mostrarMensagem('Filtros removidos.', 'sucesso');
 }
@@ -842,14 +717,9 @@ function tratarCliqueNaLista(evento) {
     elementos.hero.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
   if (acao === 'favoritar') alternarFavorito(musica);
-  if (acao === 'editar') abrirFormulario(musica);
-  if (acao === 'excluir') confirmarExclusao(musica);
 }
 
 function prepararTela() {
-  const opcoesDeHumor = Object.entries(HUMORES).map(([valor, nome]) => new Option(nome, valor));
-  elementos.formulario.elements.humor.replaceChildren(new Option('Escolha um humor', ''), ...opcoesDeHumor);
-
   elementos.moods.forEach((botao) => {
     botao.addEventListener('click', () => {
       if (estado.humor === botao.dataset.humor) limparHumor();
@@ -860,6 +730,7 @@ function prepararTela() {
 
   elementos.busca.addEventListener('input', filtrarDeNovo);
   elementos.genero.addEventListener('change', filtrarDeNovo);
+  elementos.soFavoritas.addEventListener('click', alternarSoFavoritas);
   elementos.limparFiltros.addEventListener('click', limparFiltros);
   elementos.limparHumor.addEventListener('click', () => limparHumor(true));
   elementos.lista.addEventListener('click', tratarCliqueNaLista);
@@ -867,11 +738,6 @@ function prepararTela() {
     estado.limite += MUSICAS_POR_PAGINA;
     desenharLista();
   });
-
-  elementos.gerenciar.addEventListener('click', alternarGerenciamento);
-  elementos.novaMusica.addEventListener('click', () => abrirFormulario());
-  elementos.cancelarFormulario.addEventListener('click', () => elementos.janela.close());
-  elementos.formulario.addEventListener('submit', salvarFormulario);
 }
 
 async function iniciar() {
