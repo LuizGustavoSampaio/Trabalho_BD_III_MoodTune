@@ -593,6 +593,7 @@ function filtrarDeNovo() {
 
 function mostrarSugestao(musica) {
   estado.sugestao = musica;
+  document.dispatchEvent(new CustomEvent('sugestao-mostrada', { detail: musica }));
 
   elementos.sugestaoHumor.textContent = nomeDoHumor(musica.humor).toUpperCase();
   elementos.sugestaoTitulo.textContent = musica.titulo;
