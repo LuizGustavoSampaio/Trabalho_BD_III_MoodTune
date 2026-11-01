@@ -127,7 +127,8 @@ Base `http://localhost:8080`, autenticação Basic `admin` / `secret`.
 | Sem autenticação | qualquer uma | 401 |
 
 No site, quem visita escolhe um humor (`GET` filtrado e sorteio de uma música), busca, filtra e
-favorita (`PATCH`). O botão **Gerenciar músicas** mostra **＋ Nova música** (`POST`), **Editar**
+favorita (`PATCH`). Clicar de novo no humor escolhido, ou em **Limpar humor**, desfaz a seleção e
+para a prévia. O botão **Gerenciar músicas** mostra **＋ Nova música** (`POST`), **Editar**
 (`PUT`, formulário com validação) e **Excluir** (`DELETE`, com confirmação). Toda mensagem mostra o
 status HTTP da resposta.
 
