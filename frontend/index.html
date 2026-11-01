@@ -6,7 +6,7 @@
   <meta name="description" content="Moodtune: músicas para o seu momento.">
   <title>Moodtune</title>
   <link rel="stylesheet" href="style.css">
-  <script src="theme.js"></script>
+  <script src="app.js" defer></script>
 </head>
 <body>
   <aside class="sidebar">
@@ -15,13 +15,12 @@
     <nav aria-label="Navegação principal">
       <a class="active" href="#inicio" aria-current="page">⌂ &nbsp; Descobrir</a>
       <span class="nav-pending" aria-disabled="true">▥ &nbsp; Meu painel <small>Em breve</small></span>
-      <span class="nav-pending" aria-disabled="true">＋ &nbsp; Registrar momento <small>Em breve</small></span>
     </nav>
     <div class="sidebar-note"><span aria-hidden="true">♫</span><p>Cada momento tem<br>uma trilha sonora.</p><small>Encontre a sua por aqui.</small></div>
     <div class="author"><b aria-hidden="true">G</b><div>Projeto acadêmico<small>Interface por João Marcos Gula</small></div></div>
   </aside>
   <main id="inicio">
-    <header><span>MÚSICA & SENTIMENTO</span><div class="header-actions"><span class="badge">● &nbsp; Etapa 1 · Interface inicial</span><button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false" hidden><span aria-hidden="true">◐</span> Tema escuro</button></div></header>
+    <header><span>MÚSICA & SENTIMENTO</span><div class="header-actions"><span id="contador" class="badge">● &nbsp; Carregando...</span><button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false" hidden><span aria-hidden="true">◐</span> Tema escuro</button></div></header>
     <section aria-labelledby="intro-title">
       <p class="eyebrow">DÊ PLAY NO SEU MOMENTO</p>
       <h1 id="intro-title">Como você está <em>hoje?</em></h1>
@@ -48,25 +47,15 @@
       </div>
     </section>
     <section aria-labelledby="songs-title">
-      <div class="section-heading"><div><p class="eyebrow">DESCUBRA NOVOS SONS</p><h2 id="songs-title">Para entrar no clima</h2></div><button id="nova-musica" class="primary" type="button">＋ Nova música</button></div>
+      <div class="section-heading"><div><p class="eyebrow">DESCUBRA NOVOS SONS</p><h2 id="songs-title">Para entrar no clima</h2></div><div class="heading-actions"><button id="gerenciar" class="secondary" type="button" aria-pressed="false">Gerenciar músicas</button><button id="nova-musica" class="primary" type="button" hidden>＋ Nova música</button></div></div>
       <div class="filters">
         <label class="search"><span aria-hidden="true">⌕</span><input id="busca" type="search" placeholder="Buscar música ou artista" aria-label="Buscar música ou artista"></label>
         <label class="genre-label">Gênero<select id="filtro-genero"><option value="">Todos os gêneros</option></select></label>
         <button id="limpar-filtros" class="secondary" type="button">Limpar filtros</button>
       </div>
-      <p id="mensagem" class="stage-note" role="status" aria-live="polite"></p>
+      <p id="mensagem" class="mensagem" role="status" aria-live="polite"></p>
       <div id="lista-musicas" class="song-grid"></div>
-    </section>
-    <section class="setup" aria-labelledby="setup-title">
-      <p class="eyebrow">PRIMEIRA VEZ RODANDO O PROJETO</p>
-      <h2 id="setup-title">Carregar as músicas</h2>
-      <p>
-        O banco sobe vazio. Este botão busca as músicas no iTunes e as letras na LRCLIB e grava
-        tudo no MongoDB &mdash; leva cerca de um minuto e só precisa ser feito uma vez. Se parar no
-        meio, é só clicar de novo: o que já entrou é pulado, nada duplica.
-      </p>
-      <button id="botao-importar" class="primary" type="button">Importar músicas</button>
-      <pre id="andamento" aria-live="polite"></pre>
+      <button id="mostrar-mais" class="secondary mostrar-mais" type="button" hidden>Mostrar mais</button>
     </section>
     <footer><span><b>Moodtune.</b> &nbsp; Feito para sentir.</span><span>Trabalho acadêmico · Interface: João Marcos Gula</span></footer>
   </main>
@@ -79,8 +68,8 @@
       <div class="song-bottom"><span class="tag"></span><button class="listen" type="button" data-acao="ouvir">Ouvir ▶</button></div>
       <div class="song-actions">
         <button type="button" data-acao="favoritar" aria-pressed="false">♡ Favoritar</button>
-        <button type="button" data-acao="editar">Editar</button>
-        <button type="button" data-acao="excluir">Excluir</button>
+        <button class="so-gerenciar" type="button" data-acao="editar">Editar</button>
+        <button class="so-gerenciar" type="button" data-acao="excluir">Excluir</button>
       </div>
     </article>
   </template>
@@ -106,8 +95,5 @@
     </form>
   </dialog>
 
-  <script src="app.js"></script>
-  <script src="tela.js"></script>
-  <script src="importar.js"></script>
 </body>
 </html>
