@@ -51,7 +51,7 @@
       </div>
     </section>
     <section aria-labelledby="songs-title">
-      <div class="section-heading"><div><p class="eyebrow">DESCUBRA NOVOS SONS</p><h2 id="songs-title">Para entrar no clima</h2></div><div class="heading-actions"><button id="gerenciar" class="secondary" type="button" aria-pressed="false">Gerenciar músicas</button><button id="nova-musica" class="primary" type="button" hidden>＋ Nova música</button></div></div>
+      <div class="section-heading"><div><p class="eyebrow">DESCUBRA NOVOS SONS</p><h2 id="songs-title">Para entrar no clima</h2></div></div>
       <div class="filters">
         <label class="search"><span aria-hidden="true">⌕</span><input id="busca" type="search" placeholder="Buscar música ou artista" aria-label="Buscar música ou artista"></label>
         <label class="genre-label">Gênero<select id="filtro-genero"><option value="">Todos os gêneros</option></select></label>
@@ -72,32 +72,8 @@
       <div class="song-bottom"><span class="tag"></span><button class="listen" type="button" data-acao="ouvir">Ouvir ▶</button></div>
       <div class="song-actions">
         <button type="button" data-acao="favoritar" aria-pressed="false">♡ Favoritar</button>
-        <button class="so-gerenciar" type="button" data-acao="editar">Editar</button>
-        <button class="so-gerenciar" type="button" data-acao="excluir">Excluir</button>
       </div>
     </article>
   </template>
-
-  <dialog id="janela-formulario" aria-labelledby="formulario-titulo">
-    <form id="formulario-musica" novalidate>
-      <h2 id="formulario-titulo">Nova música</h2>
-      <label>Título<input name="titulo" maxlength="120"></label>
-      <label>Artista<input name="artista" maxlength="120"></label>
-      <div class="form-linha">
-        <label>Humor<select name="humor"></select></label>
-        <label>Duração (segundos)<input name="duracao" type="number" min="1" max="3600" step="1"></label>
-      </div>
-      <label>Trecho da letra<textarea name="trecho" rows="2" maxlength="200"></textarea></label>
-      <label>Tags (separadas por vírgula)<input name="tags" placeholder="pop, balada"></label>
-      <label>Capa (URL)<input name="capa" type="url" placeholder="https://..."></label>
-      <label>Prévia de áudio (URL)<input name="previa" type="url" placeholder="https://..."></label>
-      <p id="formulario-erro" class="form-erro" role="alert"></p>
-      <div class="form-acoes">
-        <button id="cancelar-formulario" class="secondary" type="button">Cancelar</button>
-        <button class="primary" type="submit">Salvar</button>
-      </div>
-    </form>
-  </dialog>
-
 </body>
 </html>
