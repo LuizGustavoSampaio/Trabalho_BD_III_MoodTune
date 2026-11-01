@@ -98,7 +98,11 @@ let temaEscolhido = null;
 function aplicarTema(tema) {
   document.documentElement.dataset.theme = tema;
   const botao = document.getElementById('theme-toggle');
-  if (botao) botao.setAttribute('aria-pressed', String(tema === 'dark'));
+  if (!botao) return;
+  const icone = document.createElement('span');
+  icone.setAttribute('aria-hidden', 'true');
+  icone.textContent = tema === 'dark' ? '☀' : '☾';
+  botao.replaceChildren(icone, tema === 'dark' ? ' Tema claro' : ' Tema escuro');
 }
 
 try {
@@ -111,7 +115,6 @@ aplicarTema(temaEscolhido || (temaDoSistema.matches ? 'dark' : 'light'));
 function prepararTema() {
   const botao = document.getElementById('theme-toggle');
   botao.hidden = false;
-  botao.setAttribute('aria-pressed', String(document.documentElement.dataset.theme === 'dark'));
   botao.addEventListener('click', () => {
     temaEscolhido = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
     aplicarTema(temaEscolhido);
@@ -440,6 +443,7 @@ const estado = {
   musicas: [],
   humor: '',
   sugestao: null,
+  soFavoritas: false,
   limite: MUSICAS_POR_PAGINA,
   consultaHumor: 0,
 };
@@ -460,6 +464,7 @@ const elementos = {
   sortearOutra: document.getElementById('sortear-outra'),
   busca: document.getElementById('busca'),
   genero: document.getElementById('filtro-genero'),
+  soFavoritas: document.getElementById('so-favoritas'),
   limparFiltros: document.getElementById('limpar-filtros'),
   mensagem: document.getElementById('mensagem'),
   lista: document.getElementById('lista-musicas'),
@@ -526,8 +531,10 @@ function musicasFiltradas() {
   return estado.musicas.filter((musica) => {
     const combinaHumor = !estado.humor || musica.humor === estado.humor;
     const combinaGenero = !genero || (musica.tags || []).includes(genero);
-    const combinaTexto = !texto || simplificar(`${musica.titulo} ${musica.artista}`).includes(texto);
-    return combinaHumor && combinaGenero && combinaTexto;
+    const combinaFavorita = !estado.soFavoritas || musica.favorito;
+    const onde = `${musica.titulo} ${musica.artista} ${musica.album || ''} ${nomeDoHumor(musica.humor)}`;
+    const combinaTexto = !texto || simplificar(onde).includes(texto);
+    return combinaHumor && combinaGenero && combinaFavorita && combinaTexto;
   });
 }
 
@@ -535,8 +542,9 @@ function criarCartao(musica) {
   const cartao = elementos.modelo.content.firstElementChild.cloneNode(true);
   cartao.dataset.id = musica.id;
 
+  const capa = cartao.querySelector('.cover');
+  capa.setAttribute('aria-label', `Ouvir ${musica.titulo}`);
   if (musica.capa) {
-    const capa = cartao.querySelector('.cover');
     const imagem = cartao.querySelector('img');
     imagem.src = musica.capa;
     imagem.hidden = false;
@@ -567,7 +575,9 @@ function desenharLista() {
   if (lista.length === 0) {
     const vazio = document.createElement('p');
     vazio.className = 'empty';
-    vazio.textContent = 'Nenhuma música encontrada.';
+    vazio.textContent = estado.soFavoritas
+      ? 'Nenhuma favorita por aqui. Use o ♡ Favoritar nos cartões.'
+      : 'Nenhuma música encontrada.';
     elementos.lista.append(vazio);
   }
 
@@ -678,9 +688,17 @@ async function alternarFavorito(musica) {
   }
 }
 
+function alternarSoFavoritas() {
+  estado.soFavoritas = !estado.soFavoritas;
+  elementos.soFavoritas.setAttribute('aria-pressed', String(estado.soFavoritas));
+  filtrarDeNovo();
+}
+
 function limparFiltros() {
   elementos.busca.value = '';
   elementos.genero.value = '';
+  estado.soFavoritas = false;
+  elementos.soFavoritas.setAttribute('aria-pressed', 'false');
   limparHumor();
   mostrarMensagem('Filtros removidos.', 'sucesso');
 }
@@ -712,6 +730,7 @@ function prepararTela() {
 
   elementos.busca.addEventListener('input', filtrarDeNovo);
   elementos.genero.addEventListener('change', filtrarDeNovo);
+  elementos.soFavoritas.addEventListener('click', alternarSoFavoritas);
   elementos.limparFiltros.addEventListener('click', limparFiltros);
   elementos.limparHumor.addEventListener('click', () => limparHumor(true));
   elementos.lista.addEventListener('click', tratarCliqueNaLista);

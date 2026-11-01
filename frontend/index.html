@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Moodtune: músicas para o seu momento.">
   <title>Moodtune</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%23246d59'/%3E%3Ccircle cx='50' cy='50' r='25' fill='none' stroke='white' stroke-width='9'/%3E%3Ccircle cx='50' cy='50' r='6' fill='white'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="style.css">
   <script src="app.js" defer></script>
 </head>
@@ -14,13 +15,13 @@
     <small class="nav-label">SEU ESPAÇO</small>
     <nav aria-label="Navegação principal">
       <a class="active" href="#inicio" aria-current="page">⌂ &nbsp; Descobrir</a>
-      <span class="nav-pending" aria-disabled="true">▥ &nbsp; Meu painel <small>Em breve</small></span>
+      <span class="nav-pending" aria-disabled="true" title="O painel ainda está em construção">▥ &nbsp; Meu painel <small>Em breve</small></span>
     </nav>
     <div class="sidebar-note"><span aria-hidden="true">♫</span><p>Cada momento tem<br>uma trilha sonora.</p><small>Encontre a sua por aqui.</small></div>
     <div class="author"><b aria-hidden="true">G</b><div>Projeto acadêmico<small>Interface por João Marcos Gula</small></div></div>
   </aside>
   <main id="inicio">
-    <header><span>MÚSICA & SENTIMENTO</span><div class="header-actions"><span id="contador" class="badge">● &nbsp; Carregando...</span><button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false" hidden><span aria-hidden="true">◐</span> Tema escuro</button></div></header>
+    <header><span>MÚSICA & SENTIMENTO</span><div class="header-actions"><span id="contador" class="badge">● &nbsp; Carregando...</span><button id="theme-toggle" class="theme-toggle" type="button" hidden><span aria-hidden="true">◐</span> Tema escuro</button></div></header>
     <section aria-labelledby="intro-title">
       <p class="eyebrow">DÊ PLAY NO SEU MOMENTO</p>
       <h1 id="intro-title">Como você está <em>hoje?</em></h1>
@@ -53,8 +54,9 @@
     <section aria-labelledby="songs-title">
       <div class="section-heading"><div><p class="eyebrow">DESCUBRA NOVOS SONS</p><h2 id="songs-title">Para entrar no clima</h2></div></div>
       <div class="filters">
-        <label class="search"><span aria-hidden="true">⌕</span><input id="busca" type="search" placeholder="Buscar música ou artista" aria-label="Buscar música ou artista"></label>
+        <label class="search"><span aria-hidden="true">⌕</span><input id="busca" type="search" placeholder="Buscar música, artista ou álbum" aria-label="Buscar música, artista ou álbum"></label>
         <label class="genre-label">Gênero<select id="filtro-genero"><option value="">Todos os gêneros</option></select></label>
+        <button id="so-favoritas" class="secondary" type="button" aria-pressed="false">♥ Favoritas</button>
         <button id="limpar-filtros" class="secondary" type="button">Limpar filtros</button>
       </div>
       <p id="mensagem" class="mensagem" role="status" aria-live="polite"></p>
@@ -66,7 +68,7 @@
 
   <template id="modelo-musica">
     <article class="song">
-      <div class="cover"><img alt="" loading="lazy" hidden><span class="cover-word"></span></div>
+      <button class="cover" type="button" data-acao="ouvir"><img alt="" loading="lazy" hidden><span class="cover-word"></span><span class="cover-play" aria-hidden="true">▶</span></button>
       <h3></h3>
       <p class="artist"></p>
       <div class="song-bottom"><span class="tag"></span><button class="listen" type="button" data-acao="ouvir">Ouvir ▶</button></div>
