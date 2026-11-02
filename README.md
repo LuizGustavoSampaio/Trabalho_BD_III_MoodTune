@@ -157,3 +157,48 @@ Prints de cada requisição, com o status à mostra:
 | DELETE | 204 | [delete-204.png](docs/prints/delete-204.png) |
 | GET depois do DELETE | 404 | [get-404.png](docs/prints/get-404.png) |
 | Sem autenticação | 401 | [sem-auth-401.png](docs/prints/sem-auth-401.png) |
+
+## Painel: Música do dia (interface — Gula)
+
+O item Meu painel abre uma linha do tempo com Chart.js 4.5.1 via CDN. Cada ponto
+representa um registro retornado por listarHistorico(), sem inserir dias faltantes
+nem somar ou agrupar músicas. A altura é apenas o posicionamento dos pontos, não
+uma medida. A data completa, o título, o artista e o humor aparecem no tooltip.
+O clique no ponto mostra o registro e tenta tocar sua prévia, quando disponível.
+Uma lista de botões permite fazer a mesma seleção com teclado e leitor de tela.
+
+O painel consulta o histórico a cada abertura; não há atualização automática.
+Para atualizar os registros exibidos, volte a Descobrir e reabra Meu painel.
+Um único objeto Audio é reaproveitado e interrompido ao trocar de música ou sair.
+Dias sem prévia exibem uma mensagem. Datas AAAA-MM-DD são formatadas por partes,
+sem conversão UTC. Os textos externos são inseridos com textContent.
+
+Arquivos desta etapa:
+
+- frontend/index.html: navegação, seção do painel, canvas, lista e inclusão do CDN.
+- frontend/style.css: estilos do painel, com as variáveis dos temas e adaptação móvel.
+- frontend/painel.js: consulta por listarHistorico(), gráfico, navegação e prévia.
+- README.md: descrição da etapa e verificação pendente.
+
+frontend/app.js e frontend/historico.js foram preservados. O painel não cria
+requisições ao RESTHeart nem altera o armazenamento do histórico. Não foram
+adicionados outros indicadores, rankings ou gráficos nesta etapa.
+
+Verificação: além dos testes simulados de respostas fora de ordem e falha do CDN,
+a interface foi conferida em http://localhost:3000 com MongoDB, RESTHeart e nginx
+no Docker. Passaram os testes de carregamento, GET 200, histórico vazio, erro com
+o RESTHeart temporariamente parado, reabertura, clique no ponto com áudio real,
+dia sem prévia, seleção com Enter, temas claro/escuro e largura de 390 px sem
+rolagem horizontal. Busca sem acento e filtro de favoritas de Descobrir também
+foram conferidos. Não houve erro de painel.js no console.
+
+Foram usados apenas dois dias temporários (29/10/2026 e 31/10/2026), com títulos
+prefixados por Teste UI, depois removidos com DELETE 204. Nenhum dia existente
+foi sobrescrito. O RESTHeart foi reiniciado após o teste e os serviços ficaram ativos.
+
+Para testar no ambiente real, abra o Docker Desktop, execute docker compose up -d
+na raiz desta cópia do projeto e acesse http://localhost:3000. Escolha uma música
+em Descobrir, abra Meu painel, confira o registro de hoje e clique no ponto.
+Confira os temas claro/escuro e o uso pelo teclado. Preserve os registros reais:
+não sobrescreva datas existentes ao criar dados de teste e remova só os registros
+que você mesmo criou para o teste. A implementação visual teve apoio do Codex.
