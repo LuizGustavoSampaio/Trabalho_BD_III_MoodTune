@@ -9,6 +9,7 @@ services:
 
   restheart:
     image: softinstigate/restheart:8
+    restart: unless-stopped
     depends_on:
       - mongodb
     environment:
