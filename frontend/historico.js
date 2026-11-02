@@ -1,4 +1,5 @@
 const BANCO_HISTORICO = BANCO.replace(/\/musicas$/, '/historico');
+const UPSERT = '?wm=upsert';
 
 // Data de hoje no horário do usuário, no formato AAAA-MM-DD.
 // Não usar toISOString(): ele devolve a data em UTC e, no Brasil, o "dia" viraria às 21h.
@@ -29,13 +30,13 @@ async function registrarMusicaDoDia(musica) {
   };
 
   try {
-    const resposta = await requisitar(`${BANCO_HISTORICO}/${data}`, opcoes);
+    const resposta = await requisitar(`${BANCO_HISTORICO}/${data}${UPSERT}`, opcoes);
     return { status: resposta.status, data };
   } catch (erro) {
     if (erro.status !== 404) throw erro;
     // 404 = a coleção ainda não existe (primeiro dia de uso): cria e tenta de novo.
     await requisitar(BANCO_HISTORICO, { method: 'PUT' });
-    const resposta = await requisitar(`${BANCO_HISTORICO}/${data}`, opcoes);
+    const resposta = await requisitar(`${BANCO_HISTORICO}/${data}${UPSERT}`, opcoes);
     return { status: resposta.status, data };
   }
 }
