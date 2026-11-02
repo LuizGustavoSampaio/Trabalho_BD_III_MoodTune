@@ -9,6 +9,8 @@
   <link rel="stylesheet" href="style.css">
   <script src="app.js" defer></script>
   <script src="historico.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js" defer></script>
+  <script src="painel.js" defer></script>
 </head>
 <body>
   <aside class="sidebar">
@@ -16,16 +18,17 @@
     <small class="nav-label">SEU ESPAÇO</small>
     <nav aria-label="Navegação principal">
       <a class="active" href="#inicio" aria-current="page">⌂ &nbsp; Descobrir</a>
-      <span class="nav-pending" aria-disabled="true" title="O painel ainda está em construção">▥ &nbsp; Meu painel <small>Em breve</small></span>
+      <a id="painel-link" href="#painel">▥ &nbsp; Meu painel</a>
     </nav>
     <div class="sidebar-note"><span aria-hidden="true">♫</span><p>Cada momento tem<br>uma trilha sonora.</p><small>Encontre a sua por aqui.</small></div>
     <div class="author"><b aria-hidden="true">G</b><div>Projeto acadêmico<small>Interface por João Marcos Gula</small></div></div>
   </aside>
   <main id="inicio">
     <header><span>MÚSICA & SENTIMENTO</span><div class="header-actions"><span id="contador" class="badge">● &nbsp; Carregando...</span><button id="theme-toggle" class="theme-toggle" type="button" hidden><span aria-hidden="true">◐</span> Tema escuro</button></div></header>
+    <div id="tela-descobrir">
     <section aria-labelledby="intro-title">
       <p class="eyebrow">DÊ PLAY NO SEU MOMENTO</p>
-      <h1 id="intro-title">Como você está <em>hoje?</em></h1>
+      <h1 id="intro-title" tabindex="-1">Como você está <em>hoje?</em></h1>
       <p class="subtitle">Um sentimento, uma descoberta. Encontre músicas que combinam com você.</p>
       <div class="moods" role="group" aria-label="Escolha como você está se sentindo">
         <button class="mood" type="button" data-humor="feliz" aria-pressed="false"><span aria-hidden="true">😊</span><b>Feliz</b></button>
@@ -63,6 +66,39 @@
       <p id="mensagem" class="mensagem" role="status" aria-live="polite"></p>
       <div id="lista-musicas" class="song-grid"></div>
       <button id="mostrar-mais" class="secondary mostrar-mais" type="button" hidden>Mostrar mais</button>
+    </section>
+    </div>
+    <section id="painel" class="painel" aria-labelledby="painel-titulo" hidden>
+      <p class="eyebrow">SUA TRILHA AO LONGO DOS DIAS</p>
+      <h1 id="painel-titulo" tabindex="-1">Meu <em>painel.</em></h1>
+      <p class="subtitle">Uma música para lembrar de cada dia.</p>
+      <article class="painel-card" aria-labelledby="historico-titulo">
+        <div class="painel-heading">
+          <div><p class="eyebrow">MÚSICA DO DIA</p><h2 id="historico-titulo">Os sons dos seus momentos</h2></div>
+          <span class="painel-chip">Uma música por dia</span>
+        </div>
+        <p id="historico-ajuda" class="muted">Cada ponto é a última música mostrada naquele dia.
+          Passe sobre um ponto para ver o título e o artista, ou clique para ouvir a prévia.
+          A linha mostra a sequência dos registros, sem medir intensidade ou quantidade.</p>
+        <p id="painel-status" class="mensagem" role="status" aria-live="polite"></p>
+        <div id="historico-conteudo" hidden>
+          <div id="historico-grafico-container" class="historico-grafico-container">
+            <canvas id="historico-grafico" role="img" aria-label="Linha do tempo das músicas de cada dia" aria-describedby="historico-ajuda">Consulte a lista dos dias abaixo para conhecer cada música e ouvir sua prévia.</canvas>
+          </div>
+          <p id="historico-biblioteca-aviso" class="muted" role="status" hidden></p>
+          <section id="historico-selecao" class="historico-selecao" aria-label="Música selecionada" hidden>
+            <div><p id="historico-data" class="eyebrow"></p><h3 id="historico-musica"></h3><p id="historico-artista"></p><span id="historico-humor" class="tag"></span></div>
+            <button id="historico-pausar" class="secondary" type="button" disabled>Parar prévia</button>
+          </section>
+          <p id="historico-audio-status" class="muted" role="status" aria-live="polite"></p>
+          <details class="historico-acessivel">
+            <summary>Ver músicas por dia e ouvir pelo teclado</summary>
+            <ul id="historico-lista" class="historico-lista"></ul>
+          </details>
+        </div>
+        <p class="historico-nota muted">Dias sem registro não aparecem. O histórico é consultado ao abrir este painel;
+          para atualizar, volte a Descobrir e abra Meu painel novamente.</p>
+      </article>
     </section>
     <footer><span><b>Moodtune.</b> &nbsp; Feito para sentir.</span><span>Trabalho acadêmico · Interface: João Marcos Gula</span></footer>
   </main>
