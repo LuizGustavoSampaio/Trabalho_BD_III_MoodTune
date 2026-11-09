@@ -11,6 +11,8 @@
   <script src="historico.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js" defer></script>
   <script src="painel.js" defer></script>
+  <script src="analises.js" defer></script>
+  <script src="gestao.js" defer></script>
 </head>
 <body>
   <aside class="sidebar">
@@ -56,7 +58,7 @@
       </div>
     </section>
     <section aria-labelledby="songs-title">
-      <div class="section-heading"><div><p class="eyebrow">DESCUBRA NOVOS SONS</p><h2 id="songs-title">Para entrar no clima</h2></div></div>
+      <div class="section-heading"><div><p class="eyebrow">DESCUBRA NOVOS SONS</p><h2 id="songs-title">Para entrar no clima</h2></div><button class="secondary" type="button" data-abrir-gestao>Gerenciar acervo</button></div>
       <div class="filters">
         <label class="search"><span aria-hidden="true">⌕</span><input id="busca" type="search" placeholder="Buscar música, artista ou álbum" aria-label="Buscar música, artista ou álbum"></label>
         <label class="genre-label">Gênero<select id="filtro-genero"><option value="">Todos os gêneros</option></select></label>
@@ -71,7 +73,25 @@
     <section id="painel" class="painel" aria-labelledby="painel-titulo" hidden>
       <p class="eyebrow">SUA TRILHA AO LONGO DOS DIAS</p>
       <h1 id="painel-titulo" tabindex="-1">Meu <em>painel.</em></h1>
-      <p class="subtitle">Uma música para lembrar de cada dia.</p>
+      <div class="painel-toolbar"><p class="subtitle">Seu acervo, seus favoritos e a trilha dos seus dias.</p><div><button class="secondary" type="button" data-abrir-gestao>Gerenciar acervo</button><button id="painel-atualizar" class="primary" type="button">Atualizar painel</button></div></div>
+      <section id="resumo-acervo" aria-label="Resumo do acervo" aria-busy="false">
+        <p id="resumo-status" class="mensagem" role="status"></p>
+        <div class="indicadores">
+          <article><span>Músicas no acervo</span><strong id="indicador-total">—</strong><small>Todos os registros do banco</small></article>
+          <article><span>Favoritas</span><strong id="indicador-favoritas">—</strong><small>Seleção marcada com coração</small></article>
+          <article><span>Artistas</span><strong id="indicador-artistas">—</strong><small>Nomes distintos no acervo</small></article>
+          <article><span>Humores presentes</span><strong id="indicador-humores">—</strong><small>Categorias com músicas</small></article>
+          <article><span>Duração média</span><strong id="indicador-duracao">—</strong><small>Minutos e segundos por faixa</small></article>
+        </div>
+        <div id="analises-conteudo" hidden>
+          <div class="analises-grid">
+            <article class="painel-card"><p class="eyebrow">AGRUPAMENTO POR CATEGORIA</p><h2>Músicas por humor</h2><p class="muted">Distribuição das faixas do acervo.</p><div class="analise-canvas"><canvas id="humores-grafico" role="img" aria-label="Distribuição de músicas por humor. Os valores estão na lista abaixo."></canvas></div><ul id="humores-lista" class="dados-lista"></ul></article>
+            <article class="painel-card"><p class="eyebrow">RANKING DO ACERVO</p><h2>Top 5 artistas</h2><p class="muted">Artistas com mais faixas cadastradas, sem contar reproduções.</p><div class="analise-canvas"><canvas id="artistas-grafico" role="img" aria-label="Top cinco artistas por quantidade de faixas. Os valores estão na lista abaixo."></canvas></div><ol id="artistas-lista" class="dados-lista ranking-lista"></ol></article>
+          </div>
+          <p id="analises-biblioteca-aviso" class="muted" hidden>Os gráficos não puderam ser carregados. Todos os valores continuam disponíveis nas listas.</p>
+          <article class="painel-card conclusao-card"><p class="eyebrow">O QUE OS DADOS MOSTRAM</p><p id="resumo-conclusao"></p><p class="muted">A leitura descreve o acervo cadastrado e os favoritos atuais; não representa popularidade nem avaliação emocional.</p></article>
+        </div>
+      </section>
       <article class="painel-card" aria-labelledby="historico-titulo">
         <div class="painel-heading">
           <div><p class="eyebrow">MÚSICA DO DIA</p><h2 id="historico-titulo">Os sons dos seus momentos</h2></div>
@@ -114,5 +134,38 @@
       </div>
     </article>
   </template>
+  <dialog id="gestao-dialog" class="gestao-dialog" aria-labelledby="gestao-titulo">
+    <div class="dialog-heading"><div><p class="eyebrow">ACERVO DO PROJETO</p><h2 id="gestao-titulo">Gerenciar músicas</h2></div><button class="secondary" id="gestao-fechar" type="button">Fechar</button></div>
+    <p class="muted">Cadastre, revise e organize os registros usados pela interface e pelo painel.</p>
+    <div class="gestao-toolbar"><label class="search"><input id="gestao-busca" type="search" aria-label="Buscar no gerenciamento" placeholder="Buscar música ou artista"></label><button id="gestao-nova" class="primary" type="button">Nova música</button><button id="gestao-atualizar" class="secondary" type="button">Atualizar</button></div>
+    <p id="gestao-status" class="mensagem" role="status"></p>
+    <ul id="gestao-lista" class="gestao-lista"></ul>
+  </dialog>
+  <dialog id="musica-dialog" class="musica-dialog" aria-labelledby="musica-form-titulo">
+    <form id="musica-form" novalidate>
+      <p class="eyebrow">ACERVO DO PROJETO</p><h2 id="musica-form-titulo">Nova música</h2>
+      <p class="muted">Título, artista, humor e duração são obrigatórios.</p>
+      <fieldset id="musica-campos">
+        <div class="form-grid">
+          <label>Título *<input name="titulo" required maxlength="120" autocomplete="off"></label>
+          <label>Artista *<input name="artista" required maxlength="120" autocomplete="off"></label>
+          <label>Álbum<input name="album" maxlength="120" autocomplete="off"></label>
+          <label>Humor *<select name="humor" required><option value="">Selecione um humor</option><option value="feliz">Feliz</option><option value="triste">Triste</option><option value="calmo">Calmo</option><option value="animado">Animado</option><option value="apaixonado">Apaixonado</option><option value="nostalgico">Nostálgico</option></select></label>
+          <label>Duração em segundos *<input name="duracao" type="number" required min="1" max="86400" step="1" inputmode="numeric"></label>
+          <label>Gêneros / tags<input name="tags" maxlength="250" placeholder="pop, mpb" autocomplete="off"></label>
+          <div class="form-wide form-texto"><label for="musica-trecho">Trecho da letra</label><textarea id="musica-trecho" name="trecho" maxlength="200" rows="3" aria-describedby="trecho-contador"></textarea><small id="trecho-contador">0 / 200 caracteres</small></div>
+          <label class="form-wide">URL da capa<input name="capa" type="url" maxlength="2000" placeholder="https://..." autocomplete="off"></label>
+          <label class="form-wide">URL da prévia de áudio<input name="previa" type="url" maxlength="2000" placeholder="https://..." autocomplete="off"></label>
+          <label class="form-check form-wide"><input name="favorito" type="checkbox"> Marcar como favorita</label>
+        </div>
+      </fieldset>
+      <p id="musica-form-status" class="mensagem" role="alert"></p>
+      <div class="form-acoes"><button id="musica-cancelar" class="secondary" type="button">Cancelar</button><button id="musica-salvar" class="primary" type="submit">Salvar música</button></div>
+    </form>
+  </dialog>
+  <dialog id="exclusao-dialog" class="exclusao-dialog" aria-labelledby="exclusao-titulo">
+    <p class="eyebrow">CONFIRMAR EXCLUSÃO</p><h2 id="exclusao-titulo">Excluir esta música?</h2><p id="exclusao-descricao"></p><p class="muted">O registro será removido do acervo. Dias já gravados no histórico são preservados.</p><p id="exclusao-status" class="mensagem" role="alert"></p>
+    <div class="form-acoes"><button id="exclusao-cancelar" class="secondary" type="button">Cancelar</button><button id="exclusao-confirmar" class="danger" type="button">Excluir música</button></div>
+  </dialog>
 </body>
 </html>

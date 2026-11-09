@@ -269,6 +269,7 @@
   new MutationObserver(() => {
     if (aberto && grafico) criarGrafico();
   }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  document.getElementById('painel-atualizar').addEventListener('click', () => { if (aberto) carregarPainel(); });
   window.addEventListener('hashchange', navegar);
   window.addEventListener('pagehide', pararPrevia);
   navegar();
