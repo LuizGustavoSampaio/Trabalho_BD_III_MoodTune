@@ -71,6 +71,10 @@ Para ver os dados no MongoDB Compass: `mongodb://localhost:27017`, banco `resthe
 ├── frontend/
 │   ├── index.html
 │   ├── app.js               requisições ao banco, importação e tela
+│   ├── historico.js         registro e leitura da música do dia
+│   ├── painel.js            linha do tempo e navegação
+│   ├── analises.js          indicadores, gráficos e ranking
+│   ├── gestao.js            formulário e confirmação de exclusão
 │   └── style.css
 ├── postman/colecao.json     coleção exportada, com testes
 ├── docs/prints/             prints das requisições
@@ -129,9 +133,9 @@ Base `http://localhost:8080`, autenticação Basic `admin` / `secret`.
 No site, quem visita escolhe um humor (`GET` filtrado e sorteio de uma música), busca por título,
 artista ou álbum, filtra por gênero e favorita (`PATCH`); o botão **♥ Favoritas** mostra só as
 marcadas. Clicar de novo no humor escolhido, ou em **Limpar humor**, desfaz a seleção e
-para a prévia. Quem visita não cadastra, edita nem exclui músicas: o acervo é só o pré-definido,
-e `PUT /musicas/{id}` e `DELETE` são demonstrados pela coleção do Postman. Toda mensagem mostra o
-status HTTP da resposta.
+para a prévia. A área **Gerenciar acervo** permite cadastrar (POST), editar (PUT) e excluir
+(DELETE) músicas, com validação dos campos e confirmação antes da exclusão. As mensagens de
+operações concluídas ou falhas HTTP mostram o status retornado pela API.
 
 ## Coleção do Postman
 
@@ -158,47 +162,106 @@ Prints de cada requisição, com o status à mostra:
 | GET depois do DELETE | 404 | [get-404.png](docs/prints/get-404.png) |
 | Sem autenticação | 401 | [sem-auth-401.png](docs/prints/sem-auth-401.png) |
 
-## Painel: Música do dia (interface — Gula)
+## Interface e painel — Gula
 
-O item Meu painel abre uma linha do tempo com Chart.js 4.5.1 via CDN. Cada ponto
-representa um registro retornado por listarHistorico(), sem inserir dias faltantes
-nem somar ou agrupar músicas. A altura é apenas o posicionamento dos pontos, não
-uma medida. A data completa, o título, o artista e o humor aparecem no tooltip.
-O clique no ponto mostra o registro e tenta tocar sua prévia, quando disponível.
-Uma lista de botões permite fazer a mesma seleção com teclado e leitor de tela.
+A interface foi finalizada em HTML, CSS e JavaScript puro, com o visual do Moodtune,
+temas claro/escuro, navegação por teclado e adaptação a celular.
 
-O painel consulta o histórico a cada abertura; não há atualização automática.
-Para atualizar os registros exibidos, volte a Descobrir e reabra Meu painel.
-Um único objeto Audio é reaproveitado e interrompido ao trocar de música ou sair.
-Dias sem prévia exibem uma mensagem. Datas AAAA-MM-DD são formatadas por partes,
-sem conversão UTC. Os textos externos são inseridos com textContent.
+### Requisitos atendidos
 
-Arquivos desta etapa:
+| Requisito | Implementação |
+| --- | --- |
+| Listagem, busca e filtros | Descobrir: texto sem acento, humor, gênero e favoritas; botão Mostrar mais |
+| Formulário de criação e edição | Gerenciar acervo: POST e PUT, campos obrigatórios, limites, duração inteira e URLs HTTP/HTTPS |
+| Confirmação antes de excluir | Diálogo com título e artista, botão Cancelar e DELETE apenas após confirmação |
+| Mensagens de estado | Carregamento, sucesso com status HTTP, erro de resposta/conexão e estados vazios |
+| Pelo menos 4 indicadores | Total de músicas, favoritas, artistas, humores presentes e duração média |
+| Gráficos de tipos diferentes | Rosca por humor, barras horizontais de artistas e linha do tempo Música do dia, com Chart.js |
+| Ranking | Top 5 artistas pela quantidade de faixas cadastradas |
+| Agrupamento por categoria | Quantidade de músicas em cada humor, com lista acessível dos valores |
+| Atualização após alterações | POST, PUT, PATCH e DELETE atualizam Descobrir; o evento musicas-carregadas atualiza os indicadores do painel aberto |
+| Conclusão e prints | Parágrafo de leitura dos dados e capturas abaixo |
 
-- frontend/index.html: navegação, seção do painel, canvas, lista e inclusão do CDN.
-- frontend/style.css: estilos do painel, com as variáveis dos temas e adaptação móvel.
-- frontend/painel.js: consulta por listarHistorico(), gráfico, navegação e prévia.
-- README.md: descrição da etapa e verificação pendente.
+### Como usar
 
-frontend/app.js e frontend/historico.js foram preservados. O painel não cria
-requisições ao RESTHeart nem altera o armazenamento do histórico. Não foram
-adicionados outros indicadores, rankings ou gráficos nesta etapa.
+1. Em Descobrir, escolha um humor, procure uma faixa ou filtre por gênero/favoritas.
+2. Use Gerenciar acervo para cadastrar uma música, editar seus campos ou solicitar exclusão.
+3. Em Meu painel, confira os cinco indicadores, a distribuição por humor e o ranking.
+4. Na linha do tempo, clique em um ponto ou selecione um dia pela lista para ouvir a prévia.
+5. Atualizar painel consulta novamente os indicadores e o histórico.
 
-Verificação: além dos testes simulados de respostas fora de ordem e falha do CDN,
-a interface foi conferida em http://localhost:3000 com MongoDB, RESTHeart e nginx
-no Docker. Passaram os testes de carregamento, GET 200, histórico vazio, erro com
-o RESTHeart temporariamente parado, reabertura, clique no ponto com áudio real,
-dia sem prévia, seleção com Enter, temas claro/escuro e largura de 390 px sem
-rolagem horizontal. Busca sem acento e filtro de favoritas de Descobrir também
-foram conferidos. Não houve erro de painel.js no console.
+No formulário, título, artista, humor e duração são obrigatórios. Duração deve ser
+inteira, de 1 a 86400 segundos. O trecho tem limite de 200 caracteres, e capa/prévia
+aceitam somente URLs HTTP/HTTPS sem credenciais. Tags repetidas são removidas.
+A edição preserva os metadados existentes da música; os campos internos do MongoDB
+não são enviados no corpo do PUT. O contador do trecho acompanha a digitação.
 
-Foram usados apenas dois dias temporários (29/10/2026 e 31/10/2026), com títulos
-prefixados por Teste UI, depois removidos com DELETE 204. Nenhum dia existente
-foi sobrescrito. O RESTHeart foi reiniciado após o teste e os serviços ficaram ativos.
+Os indicadores usam o acervo inteiro, independentemente dos filtros de Descobrir.
+A função listarMusicas percorre páginas de 100 registros com ordenação por _id,
+para que os indicadores não sejam cortados na primeira página. Nomes de artista
+são agrupados ignorando maiúsculas e espaços extras. Empates no ranking usam ordem
+alfabética. Duração média considera as durações válidas do acervo.
 
-Para testar no ambiente real, abra o Docker Desktop, execute docker compose up -d
-na raiz desta cópia do projeto e acesse http://localhost:3000. Escolha uma música
-em Descobrir, abra Meu painel, confira o registro de hoje e clique no ponto.
-Confira os temas claro/escuro e o uso pelo teclado. Preserve os registros reais:
-não sobrescreva datas existentes ao criar dados de teste e remova só os registros
-que você mesmo criou para o teste. A implementação visual teve apoio do Codex.
+O histórico continua usando exclusivamente listarHistorico(), sem alterar historico.js.
+Cada ponto representa o registro daquele dia, sem inventar dias intermediários ou
+somar músicas. A altura dos pontos não é uma medida. Datas são formatadas separando
+a string AAAA-MM-DD. Um único Audio é reutilizado para as prévias do painel, e a
+reprodução é interrompida ao trocar de música ou sair. A lista oferece a mesma
+seleção pelo teclado. Registros já existentes no histórico permanecem após excluir
+uma música do acervo, pois guardam os dados daquele dia.
+
+### Leitura dos dados
+
+Na verificação de 08/11/2026, o banco local tinha **24 músicas, de 24 artistas**, nos
+**6 humores**, com duração média de **3 minutos e 54 segundos**. O humor Animado
+concentrava **9 faixas (37,5% do acervo)**, enquanto Nostálgico tinha uma faixa; isso
+mostra maior presença de músicas animadas nessa seleção. Como cada artista tinha
+uma faixa, o ranking estava empatado e foi organizado alfabeticamente. Não havia
+favoritas marcadas naquele momento. Esses números descrevem o acervo e as escolhas
+salvas; não medem reproduções, popularidade ou a emoção de quem usa o sistema.
+A conclusão exibida no painel é calculada novamente conforme os dados mudam.
+
+### Verificação realizada
+
+- Docker local: MongoDB, RESTHeart e nginx, com acesso por http://localhost:3000.
+- Fluxo real: criação POST 201, edição PUT 200, favorito PATCH 200 e exclusão DELETE 204.
+- Cancelar a exclusão preservou o registro; o formulário bloqueou campos obrigatórios
+  vazios e URL inválida, manteve os dados após falha de conexão e permitiu nova tentativa.
+- Os indicadores acompanharam a inclusão e a remoção do registro temporário, voltando
+  de 25 para as 24 músicas originais. O registro de teste foi removido ao terminar.
+- O serviço RESTHeart foi pausado temporariamente para validar os erros de conexão
+  e reiniciado após o teste. Dados reais não foram apagados.
+- Tema claro/escuro, teclado, mensagens, histórico com áudio real e celular de 390 px,
+  sem rolagem horizontal no painel ou no formulário.
+- Testes de lógica: cálculos, empates, acervo vazio, validação, URLs, tags, paginação
+  com 101 músicas e preservação de metadados no PUT. Nenhum erro não tratado nos novos módulos.
+
+### Capturas da interface
+
+Painel no computador:
+
+![Painel completo](docs/prints/painel-final-desktop.jpg)
+
+Painel no celular:
+
+![Painel no celular](docs/prints/painel-final-celular.jpg)
+
+Gerenciamento e formulário no celular:
+
+![Gerenciar acervo](docs/prints/gerenciar-acervo-celular.jpg)
+
+![Formulário de música](docs/prints/formulario-musica-celular.jpg)
+
+### Organização do código da interface
+
+- frontend/index.html: estrutura das telas, indicadores, gráficos e diálogos.
+- frontend/style.css: visual, temas e responsividade.
+- frontend/app.js: foram adicionados os helpers de PUT/DELETE e a leitura paginada;
+  o contador distingue erro de conexão de um acervo vazio. A importação e as funções
+  globais existentes foram preservadas.
+- frontend/painel.js: mantém a linha do tempo e passa a atender ao botão Atualizar painel.
+- frontend/analises.js: cálculos, cinco indicadores, agrupamento, ranking e gráficos.
+- frontend/gestao.js: formulário, validação, operações e confirmação de exclusão.
+- frontend/historico.js: preservado nesta finalização.
+
+A implementação, revisão e validação desta parte da interface tiveram apoio do Codex.

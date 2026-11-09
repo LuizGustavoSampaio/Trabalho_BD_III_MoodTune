@@ -153,15 +153,28 @@ async function criarColecao() {
   return { status: resposta.status };
 }
 
+// Percorre as páginas para que listagem e indicadores usem o acervo completo.
+async function listarPaginasMusicas(humor = '') {
+  const musicas = [];
+  let status = 200;
+  for (let pagina = 1; ; pagina++) {
+    const parametros = { pagesize: 100, page: pagina, sort: JSON.stringify({ _id: 1 }) };
+    if (humor) parametros.filter = JSON.stringify({ humor });
+    const resposta = await requisitar(montarUrl(BANCO, parametros));
+    status = resposta.status;
+    const lote = await resposta.json();
+    musicas.push(...lote.map(comId));
+    if (lote.length < 100) break;
+  }
+  return { status, musicas };
+}
+
 async function listarMusicas() {
-  const resposta = await requisitar(`${BANCO}?pagesize=100`);
-  return { status: resposta.status, musicas: (await resposta.json()).map(comId) };
+  return listarPaginasMusicas();
 }
 
 async function listarPorHumor(humor) {
-  const filtro = encodeURIComponent(JSON.stringify({ humor }));
-  const resposta = await requisitar(`${BANCO}?filter=${filtro}&pagesize=100`);
-  return { status: resposta.status, musicas: (await resposta.json()).map(comId) };
+  return listarPaginasMusicas(humor);
 }
 
 async function criarMusica(musica) {
@@ -172,6 +185,20 @@ async function criarMusica(musica) {
   });
   const id = (resposta.headers.get('Location') || '').split('/').pop();
   return { status: resposta.status, id };
+}
+
+// Operações usadas pelo formulário da interface; reutilizam a API existente.
+async function substituirMusica(id, musica) {
+  const resposta = await requisitar(`${BANCO}/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ ...semCamposDoBanco(musica), atualizadoEm: new Date().toISOString() }),
+  });
+  return { status: resposta.status };
+}
+
+async function excluirMusica(id) {
+  const resposta = await requisitar(`${BANCO}/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  return { status: resposta.status };
 }
 
 async function favoritarMusica(id, favorito) {
@@ -494,10 +521,12 @@ function textoDoErro(erro) {
 }
 
 async function carregarMusicas() {
+  let leituraConcluida = false;
   mostrarMensagem('Carregando músicas...', 'carregando');
   try {
     const { status, musicas } = await listarMusicas();
     estado.musicas = musicas;
+    leituraConcluida = true;
     mostrarMensagem(`${musicas.length} músicas carregadas (GET ${status}).`, 'sucesso');
     return true;
   } catch (erro) {
@@ -505,7 +534,7 @@ async function carregarMusicas() {
     mostrarMensagem(textoDoErro(erro), 'erro');
     return false;
   } finally {
-    elementos.contador.textContent = `● ${estado.musicas.length} músicas no banco`;
+    elementos.contador.textContent = leituraConcluida ? `● ${estado.musicas.length} músicas no banco` : '● Acervo indisponível';
     preencherGeneros();
     desenharLista();
     document.dispatchEvent(new CustomEvent('musicas-carregadas', { detail: estado.musicas }));
